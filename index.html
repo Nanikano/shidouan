@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="指導案づくり">
 <title>指導案スタジオ</title>
-<meta name="shidouan-version" content="2026.11.12.3">
+<meta name="shidouan-version" content="2026.11.12.4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -1238,6 +1238,7 @@ async function geminiOnce({key, model, system, contents, onText, onEvent, signal
 let lastUsage = null;
 
 function blobToB64(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(",")[1]||""); r.onerror=()=>rej(r.error); r.readAsDataURL(blob); }); }
+const B64_CACHE=new Map();
 async function materialParts(mats){
   const parts=[]; let n=0;
   for (const m of mats){
@@ -1245,7 +1246,7 @@ async function materialParts(mats){
     parts.push({text: m.oneoff ? `【資料${n}：今回指定された書式（最優先で従う）】` : m.official ? `【資料${n}：${KINDS[m.kind]}・公式】${m.name}（${SCHOOL_NAME[m.school]}・${m.subject}・${m.src}）` : `【資料${n}：${KINDS[m.kind]}（作成者が追加した資料）】（${SCHOOL_NAME[m.school]||""}・${m.subject||""}）`});   // 自分の資料はファイル名を送らない
     if (m.official) parts.push({file_data:{mime_type:"application/pdf", file_uri:urlOf(m)}});
     else if (m.text!=null) parts.push({text:m.text});
-    else parts.push({inline_data:{mime_type:m.mime, data: await blobToB64(m.blob)}});
+    else { const ck=(m.id||m.name)+":"+(m.blob?.size||0); if(!B64_CACHE.has(ck)) B64_CACHE.set(ck, await blobToB64(m.blob)); parts.push({inline_data:{mime_type:m.mime, data: B64_CACHE.get(ck)}}); }
   }
   return parts;
 }
@@ -1397,14 +1398,14 @@ async function autoFind(rec, mats, prog, signal){
     const sized=(await Promise.all(cands.map(async c=>Object.assign(c,{tokens: await pdfTokens(key, c.url, signal)})))).filter(c=>c.tokens && c.tokens<=FIND_TOK_MAX);
     prog?.setNote(`⓪ 資料さがし：中身が今回の授業に合っているかを確かめています（${Math.min(3,sized.length)}件）…`);
     const scored=[];
-    for(const c of sized.slice(0,3)){                     // 安いモデルで、上位3件だけ中身を確かめる
+    await Promise.all(sized.slice(0,3).map(async c=>{       // 安いモデルで、上位3件の中身を同時に確かめる
       try{
         const v=await askOnce(["gemini-3.5-flash-lite","gemini-3.8-flash"], [{file_data:{mime_type:"application/pdf", file_uri:c.url}},
           {text:`この資料は、${SCHOOL_NAME[p.school]}第${p.grade}学年「${p.subject}」の単元「${p.unit}」の学習指導案（特に本時の導入・展開）を作る参考として、どのくらい役に立ちますか。現行の学習指導要領に合っているかも考え、0〜10の数字1つだけで答えてください。`}],
           {generationConfig:{maxOutputTokens:512}}, signal);
         cost+=v.cost||0; const sc=Number((v.text.match(/\d+/)||[0])[0]); if(sc>=7) scored.push(Object.assign(c,{score:sc}));
       }catch(e){ if(e.name==="AbortError") throw e; }
-    }
+    }));
     chosen=scored.sort((a,b)=>b.score-a.score).slice(0,FIND_MAX).map(c=>({id:"auto:"+c.url, key:k, url:c.url, name:c.name, src:c.src||"公的サイト", tokens:c.tokens, school:p.school, subject:p.subject, grade:p.grade+"年", at:Date.now()}));
     if(chosen.length) saveAutoMats(autoMats().filter(m=>!chosen.some(c=>c.url===m.url)).concat(chosen));
   }
@@ -2776,12 +2777,28 @@ function parseFill(text){
   try{ return JSON.parse(t.slice(a,b+1)); }catch(e){ throw new AppError("記入内容の形式が正しくありませんでした。「フォーマットに記入し直す」を押してください。"); }
 }
 function hashStr(t){ let h=5381; for(let i=0;i<t.length;i++) h=((h<<5)+h+t.charCodeAt(i))|0; return (h>>>0).toString(36)+":"+t.length; }
+/* ⑤記入を速くする：記入欄のまとまりと、行を増やす表（1つずつ）に分けて同時に頼み、結果を1つにまとめる */
+function fillGroups(items, parts){
+  const on=items.filter(i=>secOn(i,parts)); const rows=on.filter(i=>i.type==="rows"), rest=on.filter(i=>i.type!=="rows");
+  if(!paid() || !rows.length || !rest.some(i=>i.type==="p")) return [on];
+  return [rest, ...rows.map(r=>[r])];
+}
+async function fillParallel(p, finalText, form, prog){
+  const groups=fillGroups(form.items, fillParts(p));
+  const one = (items, onText) => gemini({step:"fill", system:SYSTEM, json:true, contents:[{role:"user",parts:[{text:fillPrompt(p, finalText, formSpec(items, null))}]}], signal:plCtl.signal, onEvent:ev=>prog.event(ev), onText});
+  if(groups.length<2) return one(groups[0], tx=>prog.text(tx));
+  const live=groups.map(()=>"");
+  const rs=await Promise.all(groups.map((g,n)=>one(g, tx=>{ live[n]=tx; prog.text(live.join("\n")); })));
+  const out={slots:{}, tables:{}};
+  for(const r of rs){ const j=parseFill(r.text); Object.assign(out.slots, j.slots||{}); Object.assign(out.tables, j.tables||{}); if(j.figures?.length) out.figures=(out.figures||[]).concat(j.figures); }
+  const text=JSON.stringify(out);
+  return Object.assign({}, rs[0], {text, cost: rs.reduce((a,r)=>a+(r.cost||0),0)});
+}
 async function runStep(rec, key, prog, idx, mats, extra){
   const p=rec.inputs, t=null, oneoff=mats.some(m=>m.oneoff), st=rec.steps;   // 書式はWordが担うので、教科ごとのテンプレは使わない
   if(key==="fill"){
     const form=extra.form; prog.begin(idx, 0); running=null;
-    const res=await gemini({step:"fill", system:SYSTEM, json:true, contents:[{role:"user",parts:[{text:fillPrompt(p, finalBody(rec), formSpec(form.items, fillParts(p)))}]}], signal:plCtl.signal,
-      onEvent:ev=>prog.event(ev), onText:tx=>prog.text(tx)});
+    const res=await fillParallel(p, finalBody(rec), form, prog);
     prog.end(res); parseFill(res.text);
     st.fill=res.text; rec.formId=form.id; rec.formName=form.name; rec.costUsd=(rec.costUsd||0)+(res.cost||0);
     (rec.log=rec.log||[]).push({step:key, model:res.model, cost:res.cost||0, at:Date.now()});
@@ -2804,13 +2821,14 @@ async function runStep(rec, key, prog, idx, mats, extra){
   const sig=hashStr(prompt);
   const resume = rec.partial && rec.partial.key===outKey && rec.partial.sig===sig ? rec.partial.text : "";
   if(resume){ prog.setNote(`${STEPS[key]}：前回途中まで書けた分（${resume.length.toLocaleString()}字）の続きから書きます`); $("pl-view").innerHTML=renderMd(resume); }
-  let lastSave=0;
+  let lastSave=0, liveT=0, liveTx="";
   const savePartial=async(tx)=>{ rec.partial={key:outKey, sig, text:tx}; rec.updatedAt=Date.now(); try{ await DB.put("plans",rec); }catch(e){} };
   let res;
   try{
     const est = Math.round((rec.promptTokens || avg(perfGet("ptok")) || 0) + prompt.length*0.7);
     res=await gemini({step:key, system:SYSTEM, contents:[{role:"user",parts}], signal:plCtl.signal, onEvent:ev=>prog.event(ev), resume, onPartial:savePartial, est, flexOk:true,
-      onText:tx=>{ prog.text(tx); if(viewKey===outKey) $("pl-view").innerHTML=renderMd(tx); if(Date.now()-lastSave>4000 && tx.length>100){ lastSave=Date.now(); savePartial(tx); } }});
+      onText:tx=>{ prog.text(tx); liveTx=tx; if(viewKey===outKey && !liveT) liveT=setTimeout(()=>{ liveT=0; if(viewKey===outKey && running && running.key===outKey) $("pl-view").innerHTML=renderMd(liveTx); },250); if(Date.now()-lastSave>4000 && tx.length>100){ lastSave=Date.now(); savePartial(tx); } }});
+    clearTimeout(liveT); liveT=0; if(viewKey===outKey) $("pl-view").innerHTML=renderMd(res.text);
   }catch(e){
     if(e.badUrl && !extra?._urlRetried){                     // 公式資料のURLが切れている：その資料を外して、この工程をやり直す
       const bad=await findBadMats(mats, plCtl.signal, ev=>prog.event(ev));
@@ -2881,7 +2899,7 @@ async function runPipeline({mode, instruction}){
   const ttl = {new:"指導案を作成中", resume:"続きを実行中", check:"検査中", revise:"書き直し中", refill:"フォーマットに記入中"}[mode];
   const prog=new Progress($("pl-prog"),{title:`${ttl}：${rec.title}`, steps:stepDefs, nMats:mats.length, onCancel:()=>plCtl.abort()});
   $("pl-prog").scrollIntoView({block:"nearest",behavior:"smooth"});
-  let ok=false, endMsg=null, imgWarn="";
+  let ok=false, endMsg=null, imgWarn="", imgJob=null; const imgCtl=new AbortController(); plCtl.signal.addEventListener("abort",()=>imgCtl.abort());
   try{
     const pre=mats.filter(m=>m.official && isBadUrl(m.url) && !urlFixes()[m.url] && !isNoFix(m.url));
     if(pre.length && plan.some(([k])=>!["fill","image"].includes(k))) await repairMats(rec, mats, pre, prog, plCtl.signal);
@@ -2892,11 +2910,18 @@ async function runPipeline({mode, instruction}){
       }
       if(k==="fix" && mode!=="revise") await runStep(rec,"fix",prog,i,mats,{target:st.draft, review:st.review});
       else if(k==="fill" && !st.final) continue;
+      else if(k==="fill"){                                     // ⑤と同時に、⑥板書の画像も作り始める（どちらも完成版だけを使う）
+        const j=plan.findIndex(([x],n)=>n>i && x==="image");
+        if(j>=0 && !imgJob) imgJob={idx:j, p: makeFigure(rec, plan[j][1].kind, {style:S.get("fg-style")||"color"}, null, imgCtl.signal).then(r=>({r}), e=>({e}))};
+        await runStep(rec,k,prog,i,mats,extra);
+      }
       else if(k==="find"){ prog.begin(i,0);
         try{ const r=await autoFind(rec, mats, prog, plCtl.signal); FOUND=r.added; prog.end({cost:r.cost}); }
         catch(e){ if(e.name==="AbortError") throw e; prog.end(null); } }
       else if(k==="image"){ if(!st.final) continue; prog.begin(i,0);
-        try{ const r=await makeFigure(rec, extra.kind, {style:S.get("fg-style")||"color"}, prog, plCtl.signal); prog.end(r); }
+        try{ let r; if(imgJob && imgJob.idx===i){ prog.setNote("⑥ 板書の画像：⑤と同時に作り始めています…"); const o=await imgJob.p; imgJob=null; if(o.e) throw o.e; r=o.r; }
+          else r=await makeFigure(rec, extra.kind, {style:S.get("fg-style")||"color"}, prog, plCtl.signal);
+          prog.end(r); }
         catch(e){ if(e.name==="AbortError") throw e; imgWarn=e instanceof AppError?e.message:esc(e.message); prog.end(null);
           if(e.zero || e.status===404){ rec.imgPlanned=false; await DB.put("plans",rec); } } }   // 使えない画像AIは、続きから実行でも繰り返さない
       else await runStep(rec,k,prog,i,mats,extra);
@@ -2922,7 +2947,7 @@ async function runPipeline({mode, instruction}){
     if(hasAny){ rec.updatedAt=Date.now(); await DB.put("plans",rec); await reload(); }
     showPlan(hasAny?rec:null);
     if(!hasAny) $("pl-view").innerHTML=`<p class="small">作成できませんでした。</p>`;
-  }finally{ prog.finish(ok, endMsg); setBusy(false); }
+  }finally{ if(!ok) imgCtl.abort(); prog.finish(ok, endMsg); setBusy(false); }
 }
 function setBusy(b){ ["sh-file"].forEach(id=>{ if($(id)) $(id).disabled=b; }); $("pl-resume").hidden = b ? true : !(current && autoPlan(current, formFor(current)).length); ["pl-run","pl-check","pl-revise","pl-resume-btn","pl-refill","pl-docx","fg-make","fg-upload"].forEach(id=>$(id).disabled=b); }
 $("pl-refill").onclick=()=>runPipeline({mode:"refill"});
