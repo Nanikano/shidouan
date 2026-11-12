@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="指導案づくり">
 <title>指導案スタジオ</title>
-<meta name="shidouan-version" content="2026.11.12.1">
+<meta name="shidouan-version" content="2026.11.12.2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -121,6 +121,14 @@ fieldset.parts legend{font-size:12.5px;color:var(--muted);padding:0 4px}
 #sens-list li{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 #sens-list .why{color:var(--err);font-size:14px}
 .tag-x{display:inline-block;font-size:12px;line-height:1.4;padding:1px 6px;border-radius:4px;background:var(--err-soft,#fdeeee);color:var(--err);margin-left:6px;vertical-align:middle}
+#keygate{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;background:var(--bg);color:var(--fg);overflow:auto;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+#keygate[hidden]{display:none}
+#keygate .box{width:100%;max-width:520px;display:grid;gap:12px}
+#keygate h2{font-size:22px;margin:0}
+#keygate input{width:100%;font-size:16px}
+#keygate .msg{min-height:1.5em}
+#keygate .msg.err{color:var(--err)}
+#keygate .msg.ok{color:var(--ok)}
 #offline{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:rgba(255,255,255,.97);color:var(--fg)}
 #offline[hidden]{display:none}
 #offline .box{text-align:center;padding:24px}
@@ -3250,7 +3258,7 @@ async function sensCheck(budgetMs){
   return MATS.filter(m=>!m.official && m.sens?.hits?.length && !m.sensOk && !m.sensAsked);
 }
 function sensAsk(list){
-  const dlg=$("sens-dlg"); if(!list.length || !dlg || dlg.open || !$("offline").hidden) return;   // ネットが切れて画面を止めている間は出さない（つながってから出す）
+  const dlg=$("sens-dlg"); if(!list.length || !dlg || dlg.open || !$("offline").hidden || ($("keygate") && !$("keygate").hidden)) return;   // ネットが切れて画面を止めている間は出さない（つながってから出す）
   $("sens-list").innerHTML=list.map(m=>`<li><label><input type="checkbox" data-id="${esc(m.id)}" checked> <b>${esc(m.name)}</b></label><div class="why">見つかったもの：${esc(m.sens.hits.join("・"))}</div></li>`).join("");
   const done=async(keep)=>{
     for(const m of list){ const cb=$("sens-list").querySelector(`[data-id="${CSS.escape(m.id)}"]`); const ex = keep ? true : !!cb?.checked;
@@ -3268,13 +3276,43 @@ async function netOk(ms=2500){
   catch(e){ return false; } finally{ clearTimeout(t); }
 }
 let NET_FAILS=0, GUARD_BUSY=false;
+/* APIキーを入れて確かめが終わるまで、アプリを使えなくする */
+const keyReady = () => { const k=(S.get("key")||"").trim(); if(!k) return false; const a=availGet(); return !!(a && Object.values(a.models||{}).some(v=>v==="ok"||v==="busy")); };
+function setGate(on){
+  bindGate(); const g=$("keygate"); if(!g || g.hidden===!on) return;
+  g.hidden=!on;
+  document.querySelectorAll("body > *:not(#keygate):not(#offline):not(script):not(#splash):not(dialog)").forEach(el=>{ if(on) el.setAttribute("inert",""); else if($("offline").hidden) el.removeAttribute("inert"); });
+  if(on){ $("kg-key").value=S.get("key")||""; $("kg-msg").textContent=""; $("kg-msg").className="msg small"; setTimeout(()=>{ try{ $("kg-key").focus(); }catch(e){} },50); }
+}
+let KG_BUSY=false;
+async function gateCheck(){
+  if(KG_BUSY) return; const k=cleanKey($("kg-key").value); const msg=$("kg-msg");
+  if(!k){ msg.className="msg small err"; msg.textContent="APIキーを貼り付けてください。"; return; }
+  const fm=keyFormatNote(k); if(fm && !/^AIza/.test(k)){ msg.className="msg small err"; msg.textContent=fm; return; }
+  KG_BUSY=true; $("kg-go").disabled=true; msg.className="msg small"; msg.textContent="確かめています…（数秒かかります）";
+  S.set("key",k); try{ $("set-key").value=k; }catch(e){}
+  try{
+    const a=await checkAvail();
+    if(!Object.values(a.models||{}).some(v=>v==="ok"||v==="busy")) throw new AppError("このAPIキーでは、使えるAIのモデルがありませんでした。Google AI Studioで新しいキーを作って入れ直してください。");
+    const t=(a.tier||{}).t; msg.className="msg small ok"; msg.textContent="確かめました（"+({paid:"有料枠",free:"無料枠",unknown:"有料枠か無料枠かは未判定"}[t]||"")+"）。始めます。";
+    try{ renderKeyState(); renderStepsCfg(); renderStatus(); renderTier(); }catch(e){}
+    setTimeout(()=>{ setGate(false); if(S.get("tab")==="set" || !S.get("tab")) showTab("plan"); }, 700);
+  }catch(e){ msg.className="msg small err"; msg.textContent = e instanceof AppError ? e.message : "確かめられませんでした（"+String(e.message||e)+"）。もう一度押してください。"; }
+  finally{ KG_BUSY=false; $("kg-go").disabled=false; }
+}
+let KG_BOUND=false;
+function bindGate(){ if(KG_BOUND || !$("kg-go")) return; KG_BOUND=true;
+  $("kg-go").onclick=gateCheck;
+  $("kg-key").addEventListener("keydown",e=>{ if(e.key==="Enter") gateCheck(); });
+  $("kg-key").addEventListener("input",()=>{ const k=cleanKey($("kg-key").value); const n=keyFormatNote(k); $("kg-msg").className="msg small"+(n?" err":""); $("kg-msg").textContent=n; }); }
 function setOffline(off){
   const ov=$("offline"); if(!ov || ov.hidden===!off) return;
   ov.hidden=!off;
-  document.querySelectorAll("body > *:not(#offline):not(script):not(#splash)").forEach(el=>{ if(off) el.setAttribute("inert",""); else el.removeAttribute("inert"); });
+  document.querySelectorAll("body > *:not(#offline):not(script):not(#splash)").forEach(el=>{ if(off) el.setAttribute("inert",""); else if(!($("keygate") && !$("keygate").hidden && el.id!=="keygate")) el.removeAttribute("inert"); });
   if(off){ try{ document.activeElement?.blur(); }catch(e){} }
 }
 async function guardTick(force){
+  if(!$("splash") && !(S.get("key")||"").trim()) setGate(true);
   if(GUARD_BUSY && !force) return; GUARD_BUSY=true;
   try{
     const ok=await netOk(2500);
@@ -3310,6 +3348,7 @@ setTimeout(hideSplash, 7000);                                           // 万�
   if(location.protocol==="https:" && "serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
   const prev=S.get("ver"); if(prev && ver && prev!==ver) setTimeout(()=>toast("新しい版（"+ver+"）に更新しました"),400); S.set("ver",ver);
   let flagged=[]; try{ flagged=await startupGuard(); }catch(e){}
+  if(!keyReady()) setGate(true);                                         // APIキーを確かめるまでは使えない
   hideSplash();
   setTimeout(()=>sensAsk(flagged), 1300);
   setInterval(()=>guardTick(false), 5000);                               // 起動後は5秒ごとに、画面に出さずに見張る
@@ -3319,6 +3358,13 @@ setTimeout(hideSplash, 7000);                                           // 万�
 <p class="small">資料棚の中に、部外秘の表示・名簿や成績・連絡先などが含まれている資料があります。チェックした資料はAIに送りません（資料棚には残ります）。問題ない資料だけチェックを外してください。</p>
 <ul id="sens-list"></ul>
 <div class="row" style="justify-content:flex-end"><button class="btn primary" id="sens-ok" type="button">決定</button></div></dialog>
+<div id="keygate" hidden role="dialog" aria-modal="true" aria-labelledby="kg-ttl"><div class="box">
+<h2 id="kg-ttl">はじめに、APIキーを入れてください</h2>
+<p class="small" style="margin:0">指導案はGoogleのAI（Gemini）で作ります。APIキーを入れて確かめが終わると、使えるようになります。キーは <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> で発行できます（「APIキーを作成」→ 出てきた文字列をコピー）。キーはこの端末のブラウザの中だけに保存します。</p>
+<label class="f">Gemini APIキー<input type="password" id="kg-key" autocomplete="off" spellcheck="false" placeholder="AIza で始まる文字列"></label>
+<div class="row"><button class="btn primary" id="kg-go" type="button">確かめて始める</button></div>
+<div class="msg small" id="kg-msg" aria-live="polite"></div>
+</div></div>
 <div id="offline" hidden role="alertdialog" aria-modal="true" aria-labelledby="off-ttl"><div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 4.2-2.6M9.5 5.2A15 15 0 0 1 22 8.8M5 12.5a10 10 0 0 1 3.4-2.1M15 10.6a10 10 0 0 1 4 1.9M8.5 16a5 5 0 0 1 7 0M12 20h.01M3 3l18 18"/></svg><h2 id="off-ttl">インターネットにつながっていません</h2><p class="small" style="color:var(--muted)">つながると、自動で元の画面に戻ります。</p></div></div>
 <dialog id="pv-dlg" aria-labelledby="pv-ttl"><h3 id="pv-ttl">送る前の確認</h3><div id="pv-msg"></div>
 <label class="small"><input type="checkbox" id="pv-never"> このAPIキーでは、今後この確認を出さない</label>
