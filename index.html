@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="指導案づくり">
 <title>指導案スタジオ</title>
-<meta name="shidouan-version" content="2026.11.12.2">
+<meta name="shidouan-version" content="2026.11.12.3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -886,11 +886,14 @@ async function listModels(key){
 }
 /* ------------------------------------------------------------------ APIキーの判別（形式・キー自体の問題・有料枠／無料枠） */
 const KEY_RE=/^AIza[0-9A-Za-z_\-]{35}$/;
+const KEY_NEW_RE=/^AQ\.[0-9A-Za-z_\-.]{20,}$/;                 // 新しい形のキー（AQ. で始まる）
 const cleanKey = k => String(k||"").replace(/[\s"'“”‘’「」]/g,"");
 function keyFormatNote(k){
   if(!k) return "";
   if(/^AIza/.test(k) && k.length!==39) return `キーの長さが${k.length}文字です（ふつうは39文字）。コピーが途中で切れていないか確かめてください。`;
-  if(!KEY_RE.test(k)) return "Gemini APIのキーの形（AIzaで始まる39文字）と違うようです。Google AI Studioの「APIキー」からコピーしたものか確かめてください。";
+  if(KEY_NEW_RE.test(k)) return "";
+  if(/^AQ\./.test(k)) return "キーが短すぎるようです。コピーが途中で切れていないか確かめてください。";
+  if(!KEY_RE.test(k)) return "見慣れない形のキーです（ふつうは AIza または AQ. で始まります）。このまま確かめることはできます。";
   return "";
 }
 /* キーそのものの問題（どのモデルでも同じように失敗するもの）を見分けて、直し方を返す */
@@ -3288,7 +3291,7 @@ let KG_BUSY=false;
 async function gateCheck(){
   if(KG_BUSY) return; const k=cleanKey($("kg-key").value); const msg=$("kg-msg");
   if(!k){ msg.className="msg small err"; msg.textContent="APIキーを貼り付けてください。"; return; }
-  const fm=keyFormatNote(k); if(fm && !/^AIza/.test(k)){ msg.className="msg small err"; msg.textContent=fm; return; }
+  if(/[^\x21-\x7e]/.test(k)){ msg.className="msg small err"; msg.textContent="キーに使えない文字（日本語や空白など）が入っています。Google AI Studioからコピーし直してください。"; return; }
   KG_BUSY=true; $("kg-go").disabled=true; msg.className="msg small"; msg.textContent="確かめています…（数秒かかります）";
   S.set("key",k); try{ $("set-key").value=k; }catch(e){}
   try{
