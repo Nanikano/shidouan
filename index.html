@@ -230,6 +230,8 @@ details.fmemo summary{cursor:pointer}
 @keyframes blink{50%{opacity:.2}}
 @media (prefers-reduced-motion: reduce){.vtabs button .live{animation:none}}
 #tab-set .grid2{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+@media (max-width:860px){#tab-set .grid2{grid-template-columns:1fr}}
+@media (max-width:640px){.prog .phases{font-size:10px;gap:2px}}
 .steps-cfg table.list td input{min-width:170px}
 .steps-cfg table.list td:first-child{white-space:nowrap}
 .steps-cfg{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--sunk)}
