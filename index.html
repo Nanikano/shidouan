@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="指導案づくり">
 <title>指導案スタジオ</title>
-<meta name="shidouan-version" content="2026.11.12.4">
+<meta name="shidouan-version" content="2026.11.17.1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -952,15 +952,21 @@ function privacyGate(kind){
   });
 }
 
-/* モデルを1回だけ短く呼んで、使えるかを判定する。st: ok / busy（使えるが混雑・回数制限中）/ ng（使えない）/ unknown（通信できず不明） */
-async function probeModelDetail(key,id,retry=1){
+/* モデルを1回だけ短く呼んで、使えるかを判定する。st: ok / busy（使えるが混雑・回数制限中）/ ng（使えない）/ unknown（通信できず不明）
+   速さのため：ストリーミングで呼び、返事の頭（HTTPの状態）が届いた時点で打ち切る（使えるかどうかは状態だけで分かる）。
+   考える深さは「浅い」に。1つあたり最長12秒で打ち切る。 */
+const PROBE_LIMIT=12000;
+async function probeModelDetail(key,id,retry=1,think=true){
+  const ctl=new AbortController(); const timer=setTimeout(()=>ctl.abort(), PROBE_LIMIT);
   try{
-    const res=await fetch(`${API}/models/${encodeURIComponent(id)}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
-      body:JSON.stringify({contents:[{role:"user",parts:[{text:"OKとだけ返してください"}]}],generationConfig:{maxOutputTokens:1024}})});
-    if(res.ok) return {st:"ok"};
+    const gc={maxOutputTokens:256}; if(think) gc.thinkingConfig={thinkingLevel:"low"};
+    const res=await fetch(`${API}/models/${encodeURIComponent(id)}:streamGenerateContent?alt=sse`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
+      body:JSON.stringify({contents:[{role:"user",parts:[{text:"OKとだけ返してください"}]}],generationConfig:gc}), signal:ctl.signal});
+    if(res.ok){ try{ ctl.abort(); }catch(e){} return {st:"ok"}; }          // 本文は待たない
     const msg=await errMsg(res);
+    if(res.status===400 && think && /thinking/i.test(msg)) return probeModelDetail(key,id,retry,false);   // 考える深さの指定を受け付けないモデル
     const ki=keyIssue(res.status,msg); if(ki) return {st:"badkey", why:ki, raw:msg};
-    if(res.status>=500 && retry>0){ await sleepAbortable(1500); return probeModelDetail(key,id,retry-1); }
+    if(res.status>=500 && retry>0){ await sleepAbortable(1500); return probeModelDetail(key,id,retry-1,think); }
     if(res.status===429 && /limit:\s*0\b/.test(msg)) return {st:"ng", why:"このキー（無料枠）では使えないモデルです。有料枠にすると使えます", raw:msg};
     if(res.status===429) return {st:"busy", why:"使えます（いまは回数制限中）", raw:msg};
     if(res.status>=500) return {st:"busy", why:"使えます（Googleが混み合っていて今は応答なし）", raw:msg};
@@ -968,7 +974,10 @@ async function probeModelDetail(key,id,retry=1){
     if(res.status===400 && /api key/i.test(msg)) return {st:"badkey", why:"APIキーが正しくありません", raw:msg};
     if(res.status===403) return {st:"ng", why:"このキーには使う権限がありません", raw:msg};
     return {st:"ng", why:`使えません（${res.status}）`, raw:msg};
-  }catch(e){ if(retry>0){ await sleepAbortable(1500); return probeModelDetail(key,id,retry-1); } return {st:"unknown", why:"通信できず確かめられませんでした", raw:String(e)}; }
+  }catch(e){
+    if(e && e.name==="AbortError") return {st:"unknown", why:"Googleの返事が12秒以内に来ませんでした", raw:"timeout"};
+    if(retry>0){ await sleepAbortable(1500); return probeModelDetail(key,id,retry-1,think); } return {st:"unknown", why:"通信できず確かめられませんでした", raw:String(e)}; }
+  finally{ clearTimeout(timer); }
 }
 async function probeModel(key,id){ const r=await probeModelDetail(key,id); return r.st==="unknown"?"busy":r.st==="badkey"?"ng":r.st; }
 async function refreshModels(force){
@@ -1016,10 +1025,12 @@ async function checkAvail(){
   if(availBusy) return availBusy;
   availBusy=(async()=>{
     const key=apiKey(); let all=[];
-    try{ all=(await listModels(key)).map(m=>m.id); }catch(e){ if(e instanceof AppError && (e.keyIssue || /APIキー|使えません/.test(e.message))) throw e; }
+    const listJob=listModels(key).then(l=>({l}), e=>({e}));          // モデル一覧の取得と、各モデルの確かめを同時に行う
     const want=[...new Set([...Object.values(PRESETS).flatMap(p=>Object.values(p).map(v=>v[0])), ...FALLBACK_CHAIN, ...Object.keys(STEPS).map(k=>(S.get("m-"+k)||"").trim()).filter(Boolean)])];
     const models={}, why={};
     const res=await Promise.all(want.map(async m=>[m, await probeModelDetail(key,m)]));
+    const lr=await listJob;
+    if(lr.e){ const e=lr.e; if(e instanceof AppError && (e.keyIssue || /APIキー|使えません/.test(e.message))) throw e; } else all=lr.l.map(m=>m.id);
     const bad=res.filter(([,r])=>r.st==="badkey");
     if(res.length && bad.length===res.length) throw new AppError(bad[0][1].why || "APIキーが正しくありません。Google AI Studioでコピーし直して貼り付けてください。");
     if(res.length && res.every(([,r])=>r.st==="unknown")) throw new AppError("Googleに接続できませんでした。インターネット接続を確かめて、もう一度押してください。");
@@ -3317,7 +3328,7 @@ async function gateCheck(){
   if(KG_BUSY) return; const k=cleanKey($("kg-key").value); const msg=$("kg-msg");
   if(!k){ msg.className="msg small err"; msg.textContent="APIキーを貼り付けてください。"; return; }
   if(/[^\x21-\x7e]/.test(k)){ msg.className="msg small err"; msg.textContent="キーに使えない文字（日本語や空白など）が入っています。Google AI Studioからコピーし直してください。"; return; }
-  KG_BUSY=true; $("kg-go").disabled=true; msg.className="msg small"; msg.textContent="確かめています…（数秒かかります）";
+  KG_BUSY=true; $("kg-go").disabled=true; msg.className="msg small"; msg.textContent="確かめています…（ふつうは数秒）"; const kgT0=Date.now(), kgTick=setInterval(()=>{ if(KG_BUSY) msg.textContent=`確かめています…（${Math.round((Date.now()-kgT0)/1000)}秒）`; },1000);
   S.set("key",k); try{ $("set-key").value=k; }catch(e){}
   try{
     const a=await checkAvail();
@@ -3326,7 +3337,7 @@ async function gateCheck(){
     try{ renderKeyState(); renderStepsCfg(); renderStatus(); renderTier(); }catch(e){}
     setTimeout(()=>{ setGate(false); if(S.get("tab")==="set" || !S.get("tab")) showTab("plan"); }, 700);
   }catch(e){ msg.className="msg small err"; msg.textContent = e instanceof AppError ? e.message : "確かめられませんでした（"+String(e.message||e)+"）。もう一度押してください。"; }
-  finally{ KG_BUSY=false; $("kg-go").disabled=false; }
+  finally{ clearInterval(kgTick); KG_BUSY=false; $("kg-go").disabled=false; }
 }
 let KG_BOUND=false;
 function bindGate(){ if(KG_BOUND || !$("kg-go")) return; KG_BOUND=true;
