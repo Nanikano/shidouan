@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="指導案づくり">
 <title>指導案スタジオ</title>
-<meta name="shidouan-version" content="2026.11.26.2">
+<meta name="shidouan-version" content="2026.11.26.3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -138,12 +138,12 @@ details.mk-more>summary{cursor:pointer;list-style:revert}
 .mk-nav{display:flex;gap:8px;align-items:center}
 .mk-nav .btn{min-height:38px;padding:8px 14px;font-size:14.5px}
 .mk-nav .btn:disabled{visibility:hidden}
+.mk-bar[hidden]{display:none}
 .mk-bar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;border-top:1px solid var(--line);padding-top:12px;background:var(--surface)}
 .mk-bar #pl-run{font-size:17px;padding:13px 30px}
 .mk-opt>summary{cursor:pointer;font-size:14px;color:var(--accent)}
 .mk-opt>summary .small{color:var(--muted)}
 .mk-optlist{display:grid;gap:4px;margin-top:6px}
-@media (max-width:860px){.mk-bar{position:sticky;bottom:0;z-index:5;padding-bottom:10px;margin:0;padding-left:16px;padding-right:16px;box-shadow:0 -6px 12px -10px rgba(0,0,0,.35)}}
 @media (max-width:420px){.mk-steps .t{font-size:12.5px}.mk>*:not(.mk-steps){margin:0 12px}}
 
 fieldset.parts{grid-column:1/-1;min-width:0;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:0;display:grid;gap:6px}
@@ -443,7 +443,7 @@ body.splashing > header.top, body.splashing > nav, body.splashing > main{opacity
 
       <div class="mk-nav"><button class="btn" type="button" id="mk-prev">← 戻る</button><span class="spacer"></span><button class="btn" type="button" id="mk-next">次へ →</button></div>
 
-      <div class="mk-bar">
+      <div class="mk-bar" id="mk-bar" hidden>
         <button class="btn primary" id="pl-run">指導案を作る</button>
         <details class="mk-opt"><summary>作り方の設定<span class="small" id="mk-opts"></span></summary>
           <div class="mk-optlist"><label class="small"><input type="checkbox" id="pl-flex"> 急がない（半額・数分〜数十分かかることがあります）</label><label class="small"><input type="checkbox" id="pl-find"> 良い資料をネットで自動で探して加える（20〜40秒・1回 数円・最大2件）</label><label class="small"><input type="checkbox" id="pl-voices"> 現場の声（X・ブログなど）を調べて反映する（開始から約10秒・1回 数円）</label></div>
@@ -2886,7 +2886,7 @@ function photosNote(rec){
   const go=(n, focus)=>{ cur=Math.max(1,Math.min(4,n));
     tabs.forEach(t=>{ const on=Number(t.dataset.mk)===cur; t.setAttribute("aria-selected", String(on)); t.tabIndex=on?0:-1; });
     panes.forEach(p=>p.hidden=Number(p.dataset.mk)!==cur);
-    $("mk-prev").disabled=cur===1; $("mk-next").hidden=cur===4; if(cur<4) $("mk-next").textContent=`次へ：${MK_LABEL[cur+1]} →`;
+    $("mk-prev").disabled=cur===1; $("mk-next").hidden=cur===4; $("mk-bar").hidden=cur!==4; if(cur<4) $("mk-next").textContent=`次へ：${MK_LABEL[cur+1]} →`;
     if(focus) tabs[cur-1].focus(); };
   tabs.forEach(t=>{ t.onclick=()=>go(Number(t.dataset.mk));
     t.onkeydown=e=>{ if(e.key==="ArrowRight"){ e.preventDefault(); go(cur%4+1,true); } else if(e.key==="ArrowLeft"){ e.preventDefault(); go((cur+2)%4+1,true); } }; });
