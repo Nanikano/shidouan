@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
 <title>評価づくり</title>
-<meta name="hyoka-version" content="2026.11.27.1">
+<meta name="hyoka-version" content="2026.11.27.2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap">
 <style>
@@ -108,6 +108,7 @@ pre.raw{white-space:pre-wrap;font-family:inherit;font-size:13px;background:var(-
   </nav>
 </header>
 
+<div class="note warn noprint" id="upd" hidden style="max-width:1180px;margin:12px auto 0"></div>
 <main>
 <!-- ============ 評価をつくる ============ -->
 <section class="tab" id="tab-make">
@@ -841,7 +842,7 @@ function onSubject(){
   updateEst();
 }
 function init(){
-  $("ver").textContent="版 "+VERSION;
+  $("ver").textContent="版 "+VERSION+(location.protocol==="file:"?"（PC版）":"");
   $("f-school").innerHTML=Object.keys(GRADES).map(s=>`<option value="${s}">${SCHOOL_NAME[s]}</option>`).join("");
   const last=JSON.parse(S.get("last")||"null");
   $("f-school").onchange=onSchool; $("f-subject").onchange=onSubject; $("f-grade").onchange=updateEst;
@@ -864,7 +865,27 @@ function init(){
   if(!apiKey()) showGate();
   window.addEventListener("offline",()=>toast("インターネットにつながっていません"));
 }
+
+/* ================================================================== 最新版の確認（GitHub） */
+const RAW_URL = "https://raw.githubusercontent.com/Nanikano/shidouan/main/hyoka.html";
+const PAGES_URL = "https://nanikano.github.io/shidouan/hyoka.html";
+const verNum = v => String(v||"").split(".").map(n=>Number(n)||0);
+const newer = (a,b) => { const x=verNum(a), y=verNum(b); for(let i=0;i<Math.max(x.length,y.length);i++){ if((x[i]||0)!==(y[i]||0)) return (x[i]||0)>(y[i]||0); } return false; };
+const isPC = location.protocol==="file:";
+async function checkUpdate(){
+  try{
+    const url = isPC ? RAW_URL+"?t="+Date.now() : location.href.split("#")[0].split("?")[0]+"?t="+Date.now();
+    const res=await fetch(url,{cache:"no-store"}); if(!res.ok) return;
+    const m=(await res.text()).match(/name="hyoka-version" content="([\d.]+)"/); if(!m || !newer(m[1], VERSION)) return;
+    const u=$("upd"); u.hidden=false;
+    u.innerHTML = isPC
+      ? `新しい版（${esc(m[1])}）がGitHubに出ています。評価づくりを閉じて、デスクトップの「評価づくり」から開き直すと自動で更新されます（作った評価・評価ノートはそのまま残ります）。`
+      : `新しい版（${esc(m[1])}）が出ています。 <button class="btn" id="upd-go">読み込み直して更新</button>`;
+    if(!isPC) $("upd-go").onclick=()=>location.reload();
+  }catch(e){}
+}
 init();
+checkUpdate(); setInterval(checkUpdate, 30*60*1000);
 </script>
 </body>
 </html>
