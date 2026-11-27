@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="指導案づくり">
 <title>指導案スタジオ</title>
-<meta name="shidouan-version" content="2026.11.27.1">
+<meta name="shidouan-version" content="2026.11.27.2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -1415,6 +1415,8 @@ const findOn = () => S.get("autofind")!=="0";
 const FIND_MAX=2, FIND_TOK_MAX=40000;                     // 費用を抑える：2件まで、1件4万トークン（PDFで約40〜50ページ）まで
 const OK_HOST=/^https?:\/\/([^/]+\.)?(go\.jp|lg\.jp|ed\.jp|ac\.jp|metro\.tokyo\.jp|pref\.[a-z]+\.jp|city\.[a-z.]+\.jp)\//i;
 function autoMats(){ try{ return JSON.parse(S.get("auto-mats")||"[]"); }catch(e){ return []; } }
+function findNone(){ try{ return JSON.parse(S.get("auto-none")||"{}"); }catch(e){ return {}; } }
+function setFindNone(k){ const n=findNone(); n[k]=Date.now(); const ks=Object.keys(n); if(ks.length>100) delete n[ks.sort((a,b)=>n[a]-n[b])[0]]; S.set("auto-none", JSON.stringify(n)); }
 function saveAutoMats(list){ S.set("auto-mats", JSON.stringify(list.slice(-200))); }
 /* ------------------------------------------------------------------ 現場の声：作成開始から約10秒、ネット（X・ブログ・noteなど）の先生の声を調べ、解決した形で指導案に反映する */
 const voicesOn = () => S.get("voices")!=="0";
@@ -1422,7 +1424,9 @@ const VOICE_LIMIT_MS = 12000;
 let VOICE_JOB=null;
 function voiceCache(){ try{ return JSON.parse(S.get("voices-cache")||"{}"); }catch(e){ return {}; } }
 async function fetchVoices(rec, signal){
-  const p=rec.inputs, k=autoKey(p), cache=voiceCache();
+  const p=rec.inputs, k=autoKey(p);
+  if(!rec.pre && PRE.vk===k && PRE.voices){ try{ await PRE.voices; }catch(e){} }    // 入力中に先回りで調べているなら、その結果を待つ（二重に調べない）
+  const cache=voiceCache();
   if(cache[k] && Date.now()-cache[k].at < 30*24*3600*1000) return Object.assign({cached:true, cost:0}, cache[k]);   // 同じ単元は30日間、調べ直さない（費用0）
   const L=learner(p.school)||"児童生徒";
   const q=`${SCHOOL_NAME[p.school]}第${p.grade}学年「${p.subject}」の単元「${p.unit}」の授業について、実際に授業をした先生がネット上（X（旧Twitter）、ブログ、note、教員向けサイトの実践記録など）で述べている声をGoogleで調べてください。
@@ -1472,6 +1476,7 @@ async function autoFind(rec, mats, prog, signal){
   // 前に同じ条件で見つけたものがあれば、検索しない（費用0）
   const known=autoMats().filter(m=>m.key===k && !isBadUrl(m.url));
   let chosen=known.slice(0,FIND_MAX);
+  const none=findNone(); if(!chosen.length && none[k] && Date.now()-none[k] < 7*24*3600*1000) return {added:[], cost:0};   // 7日以内に探して合うものがなかった単元は、探し直さない
   if(!chosen.length){
     prog?.setNote(`⓪ 資料さがし：Googleで「${SCHOOL_NAME[p.school]}${p.grade}年 ${p.subject}「${p.unit}」」の指導案・授業例を探しています…`);
     const q=`次の授業の学習指導案を作るための参考資料を、Googleで探してください。
@@ -1489,7 +1494,7 @@ async function autoFind(rec, mats, prog, signal){
       const cols=line.split(/[｜|]/).map(x=>x.trim()); cands.push({url, name:(cols[1]||"").slice(0,80)||decodeURIComponent(url.split("/").pop()), src:(cols[2]||"").slice(0,40)});
       if(cands.length>=6) break;
     }
-    if(!cands.length){ prog?.setNote("⓪ 資料さがし：条件に合う公的なPDFが見つかりませんでした。今の資料で作ります"); return {added:[], cost}; }
+    if(!cands.length){ setFindNone(k); prog?.setNote("⓪ 資料さがし：条件に合う公的なPDFが見つかりませんでした。今の資料で作ります"); return {added:[], cost}; }
     prog?.setNote(`⓪ 資料さがし：見つかった${cands.length}件を、読めるか・大きさを確かめています…`);
     const sized=(await Promise.all(cands.map(async c=>Object.assign(c,{tokens: await pdfTokens(key, c.url, signal)})))).filter(c=>c.tokens && c.tokens<=FIND_TOK_MAX);
     prog?.setNote(`⓪ 資料さがし：中身が今回の授業に合っているかを確かめています（${Math.min(3,sized.length)}件）…`);
@@ -1503,11 +1508,12 @@ async function autoFind(rec, mats, prog, signal){
       }catch(e){ if(e.name==="AbortError") throw e; }
     }));
     chosen=scored.sort((a,b)=>b.score-a.score).slice(0,FIND_MAX).map(c=>({id:"auto:"+c.url, key:k, url:c.url, name:c.name, src:c.src||"公的サイト", tokens:c.tokens, school:p.school, subject:p.subject, grade:p.grade+"年", at:Date.now()}));
+    if(!chosen.length) setFindNone(k);
     if(chosen.length) saveAutoMats(autoMats().filter(m=>!chosen.some(c=>c.url===m.url)).concat(chosen));
   }
   const added=[];
   for(const a of chosen){ const m=autoToMat(a); if(mats.some(x=>x.id===m.id)) continue; mats.push(m); if(!rec.matIds.includes(m.id)) rec.matIds.push(m.id); added.push(m); }
-  rec.costUsd=(rec.costUsd||0)+cost; await DB.put("plans",rec);
+  rec.costUsd=(rec.costUsd||0)+cost; if(!rec.pre) await DB.put("plans",rec);
   prog?.setNote(added.length ? `⓪ 資料さがし：${added.length}件を加えました（${added.map(m=>m.name).join("、")}）` : "⓪ 資料さがし：合う資料が見つからなかったため、今の資料で作ります");
   return {added, cost};
 }
@@ -2760,6 +2766,26 @@ async function addOneoff(files){
   ["dragenter","dragover"].forEach(t=>d.addEventListener(t,e=>{e.preventDefault();d.classList.add("over");}));
   ["dragleave","drop"].forEach(t=>d.addEventListener(t,e=>{e.preventDefault();d.classList.remove("over");}));
   d.addEventListener("drop",e=>addOneoff([...e.dataTransfer.files])); }
+/* ------------------------------------------------------------------ 先回り：入力しているあいだに、⓪資料さがし・現場の声を裏で済ませておく
+   結果は「指導案を作る」を押してから調べるのと同じ（同じ単元の結果を保存して使い回す仕組みに、先に入れておくだけ）。
+   有料枠と確かめられたキーで、単元名が入っているときだけ。単元名などを変えたら、その単元でもう一度。 */
+const PRE={k:"", vk:"", find:null, voices:null, ctl:null, cost:0, timer:null};
+function prefetchNow(){
+  clearTimeout(PRE.timer);
+  try{ if(!apiKey() || !photoPaid()) return; }catch(e){ return; }
+  const p=planInputs(); if(!p.unit || p.unit.length<2 || !p.subject) return;
+  const k=autoKey(p); if(PRE.k===k) return;
+  PRE.ctl?.abort(); const ctl=new AbortController(); PRE.ctl=ctl; PRE.k=k;
+  const have=[...$("pl-picks").querySelectorAll("input:checked")].map(i=>matById(i.value)).filter(Boolean);
+  PRE.find = findOn() ? autoFind({inputs:p, matIds:[], costUsd:0, pre:true}, have, null, ctl.signal).then(r=>{ PRE.cost+=r.cost||0; }).catch(()=>{}) : null;
+  PRE.vk=k; PRE.voices=null;
+  if(voicesOn()){ const t=setTimeout(()=>ctl.abort(), 25000);
+    PRE.voices = fetchVoices({inputs:p, pre:true}, ctl.signal).then(v=>{ PRE.cost+=v.cost||0; }).catch(()=>{}).finally(()=>clearTimeout(t)); }
+}
+const prefetchSoon = ms => { clearTimeout(PRE.timer); PRE.timer=setTimeout(prefetchNow, ms); };
+["pl-unit","pl-school","pl-grade","pl-subject"].forEach(id=>{ const el=$(id); if(!el) return;
+  el.addEventListener("input", ()=>prefetchSoon(3000)); el.addEventListener("change", ()=>prefetchSoon(800)); });
+
 /* ------------------------------------------------------------------ 教科書・参考資料の写真（今回だけ。写真そのものは保存しない）
    写真は縮小せず高い解像度のまま1枚ずつAIに読み取らせ（文字起こし・図・表・ページの構成）、その読み取り結果を①以降に渡す。
    有料枠と確かめられたAPIキーでだけ使える（無料枠では送った内容がGoogleのサービス改善に使われるため）。 */
@@ -2793,6 +2819,14 @@ function addPhotos(files){
   }
   renderPhotos();
   if(errs.length){ msg.className="msg small err"; msg.innerHTML=errs.map(esc).join("<br>"); }
+  prefetchPhotos();
+}
+/* 先回り：写真を入れた時点で読み取りを始めておく（有料枠のみ。結果は作成時と同じもの） */
+function prefetchPhotos(){
+  if(!photoPaid() || !apiKey()) return;
+  for(const ph of PHOTOS){ if(PHOTO_OCR.has(ph.key) || PHOTO_INFLIGHT.has(ph.key)) continue;
+    const job=readPhoto(ph, planInputs()).then(r=>{ PRE.cost+=r.cost||0; renderPhotos(); }).catch(()=>{}).finally(()=>PHOTO_INFLIGHT.delete(ph.key));
+    PHOTO_INFLIGHT.set(ph.key, job); }
 }
 { const d=$("ph-drop"), fi=$("ph-file");
   const open=()=>{ if(!photoPaid()){ const m=$("ph-msg"); m.className="msg small err"; m.textContent=PHOTO_PAID_MSG; return; } fi.click(); };
@@ -2822,7 +2856,9 @@ function photoPrompt(type, p){
 注意：写っていないことを補ったり、内容を解説・要約で置き換えたりしない。前置きは書かない。`;
 }
 /* 写真1枚を読み取る（高い解像度・深く考える）。混み合い・回数制限は待ってやり直し、だめなら次のモデル */
+const PHOTO_INFLIGHT=new Map();
 async function readPhoto(ph, p, signal, onEvent){
+  if(PHOTO_INFLIGHT.has(ph.key)){ try{ await PHOTO_INFLIGHT.get(ph.key); }catch(e){} }    // 先回りで読み取り中なら、その結果を使う
   if(PHOTO_OCR.has(ph.key)) return Object.assign({cached:true, cost:0}, PHOTO_OCR.get(ph.key));
   const key=apiKey(); const data=await blobToB64(ph.blob);
   const models=[...new Set([stepCfg("analyze").model, "gemini-3.8-flash", "gemini-3.6-flash"])];
@@ -2890,7 +2926,8 @@ function photosNote(rec){
     tabs.forEach(t=>{ const on=Number(t.dataset.mk)===cur; t.setAttribute("aria-selected", String(on)); t.tabIndex=on?0:-1; });
     panes.forEach(p=>p.hidden=Number(p.dataset.mk)!==cur);
     $("mk-prev").disabled=cur===1; $("mk-next").hidden=cur===4; $("mk-bar").hidden=cur!==4; if(cur<4) $("mk-next").textContent=`次へ：${MK_LABEL[cur+1]} →`;
-    if(focus) tabs[cur-1].focus(); };
+    if(focus) tabs[cur-1].focus();
+    if(cur>1) prefetchNow(); };
   tabs.forEach(t=>{ t.onclick=()=>go(Number(t.dataset.mk));
     t.onkeydown=e=>{ if(e.key==="ArrowRight"){ e.preventDefault(); go(cur%4+1,true); } else if(e.key==="ArrowLeft"){ e.preventDefault(); go((cur+2)%4+1,true); } }; });
   $("mk-prev").onclick=()=>go(cur-1); $("mk-next").onclick=()=>go(cur+1);
@@ -3128,7 +3165,7 @@ async function runPipeline({mode, instruction}){
     if(!(await privacyGate("run"))) return note(msg,"warn","送るのをやめました。");
     const ph=privacyHits(p);
     if(ph.length && !confirm("次の内容はAI（Google）に送られます。日付・時刻・学校名・人名などは、「日付・時刻・学校名・氏名」欄（送らない欄）に入れてください。\n\n"+ph.join("\n")+"\n\nこのまま送りますか？")) return note(msg,"warn","送るのをやめました。該当する部分を消してから、もう一度押してください。");
-    rec={ id:uid(), title:`${SCHOOL_NAME[p.school]}${p.grade}年 ${p.subject}「${p.unit}」`, inputs:p, matIds:mats.map(m=>m.id), steps:{}, text:"", costUsd:0, createdAt:Date.now(), updatedAt:Date.now(),
+    rec={ id:uid(), title:`${SCHOOL_NAME[p.school]}${p.grade}年 ${p.subject}「${p.unit}」`, inputs:p, matIds:mats.map(m=>m.id), steps:{}, text:"", costUsd:(()=>{ const c=PRE.cost||0; PRE.cost=0; return c; })(), createdAt:Date.now(), updatedAt:Date.now(),
       imgPlanned: imgAuto() && (!p.parts || p.parts.includes("board")), local: locGet(), photoWant: PHOTOS.length };
   }
   if(!rec.steps) rec.steps={ final: rec.text||"", review: rec.check||"" };
@@ -3177,7 +3214,7 @@ async function runPipeline({mode, instruction}){
       }
       else if(k==="photo"){ prog.begin(i,0); prog.setNote("写真の読み取り：縮小せずに、文字・図・表・ページの構成を読み取っています…");
         const o=await photoJob; if(o.e) throw o.e; for(const pm of photoMats(rec)) if(!mats.some(m=>m.id===pm.id)) mats.push(pm); prog.end({cost:o.r.cost}); }
-      else if(k==="find"){ prog.begin(i,0);
+      else if(k==="find"){ prog.begin(i,0); if(PRE.find && PRE.k===autoKey(rec.inputs)){ prog.setNote("⓪ 資料さがし：入力中に先に調べていた結果を確かめています…"); await PRE.find; }
         try{ const r=await autoFind(rec, mats, prog, plCtl.signal); FOUND=r.added; prog.end({cost:r.cost}); }
         catch(e){ if(e.name==="AbortError") throw e; prog.end(null); } }
       else if(k==="image"){ if(!st.final) continue; prog.begin(i,0);
