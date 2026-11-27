@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="指導案づくり">
 <title>指導案スタジオ</title>
-<meta name="shidouan-version" content="2026.11.26.3">
+<meta name="shidouan-version" content="2026.11.27.1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -148,7 +148,10 @@ details.mk-more>summary{cursor:pointer;list-style:revert}
 
 fieldset.parts{grid-column:1/-1;min-width:0;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:0;display:grid;gap:6px}
 fieldset.parts legend{font-size:12.5px;color:var(--muted);padding:0 4px}
-#pl-parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:4px 12px}
+#pl-parts{display:grid;grid-template-columns:1fr;gap:2px}
+#pl-parts .gv-item{margin:2px 0 8px 22px}
+#pl-parts .gv-item textarea{width:100%;font-size:14px}
+#pl-parts .gv-item.has textarea{border-color:var(--accent)}
 #pl-parts label{display:flex;gap:6px;align-items:flex-start;font-size:13.5px;color:var(--fg)}
 #pl-parts label input{margin-top:5px}
 #pl-given{display:grid;gap:8px;margin-top:10px}
@@ -2922,19 +2925,21 @@ async function renderParts(){
   const f=selForm(); const box=$("pl-parts"); if(!f){ box.innerHTML=""; return; }
   let secs=PARTS_CACHE[f.id]; if(!secs){ try{ secs=formSections((await formLoad(f.buf)).items); }catch(e){ secs=[]; } PARTS_CACHE[f.id]=secs; }
   let saved=null; try{ saved=JSON.parse(S.get("parts-"+f.id)||"null"); }catch(e){}
-  box.innerHTML = secs.length ? secs.map(s=>`<label><input type="checkbox" value="${s.k}"${!saved||saved.includes(s.k)?" checked":""}><span>${esc(s.label)}</span></label>`).join("")
+  box.innerHTML = secs.length ? secs.map(s=>`<label><input type="checkbox" value="${s.k}"${!saved||saved.includes(s.k)?" checked":""}><span>${esc(s.label)}</span></label><div class="gv-item" data-gk="${s.k}" hidden><textarea rows="2" data-gk="${s.k}" aria-label="${esc(s.label)}の内容" placeholder="「${esc(s.label)}」の内容を入れると、そのまま使います（空欄ならAIが想定）"></textarea></div>`).join("")
     : `<span class="small">この書式からは項目を見つけられませんでした。すべての項目を作ります。</span>`;
-  box.querySelectorAll("input").forEach(i=>i.onchange=()=>{ S.set("parts-"+f.id, JSON.stringify(pickedParts().map(x=>x.k))); renderGiven(); });
+  box.querySelectorAll("input").forEach(i=>i.onchange=e=>{ S.set("parts-"+f.id, JSON.stringify(pickedParts().map(x=>x.k))); renderGiven();
+    if(e && !i.checked){ const t=box.querySelector(`.gv-item[data-gk="${i.value}"] textarea`); t?.scrollIntoView({block:"nearest", behavior:"smooth"}); } });
   renderGiven();
 }
 /* 作らない項目：内容を入力する欄。入力があればそれに合わせて作り、Wordにもそのまま入れる。空欄ならAIが想定する（出力はしない） */
 function renderGiven(){
   const f=selForm(); const box=$("pl-given"); const secs=f?PARTS_CACHE[f.id]||[]:[];
   const on=new Set(pickedParts().map(x=>x.k)); const off=secs.filter(x=>!on.has(x.k));
-  if(!off.length){ box.innerHTML=""; return; }
-  box.innerHTML = `<div class="gv-head">作らない項目の内容（任意）：入力すると、その内容に合わせてほかの項目を作り、Wordにもそのまま入れます。空欄の項目は、AIがほかの項目と合うように想定して作り、出力はしません。</div>`
-    + off.map(x=>`<label class="f">${esc(x.label)}<textarea rows="2" data-gk="${x.k}" placeholder="空欄ならAIが想定します">${esc(S.get("given-"+f.id+"-"+x.k)||"")}</textarea></label>`).join("");
-  box.querySelectorAll("textarea").forEach(t=>t.oninput=()=>S.set("given-"+f.id+"-"+t.dataset.gk, t.value));
+  $("pl-parts").querySelectorAll(".gv-item").forEach(d=>{
+    const k=d.dataset.gk, t=d.querySelector("textarea"); d.hidden=on.has(k);
+    if(f && !t.dataset.bound){ t.value=S.get("given-"+f.id+"-"+k)||""; t.dataset.bound="1"; t.oninput=()=>{ S.set("given-"+f.id+"-"+k, t.value); d.classList.toggle("has", !!t.value.trim()); }; }
+    d.classList.toggle("has", !!t.value.trim()); });
+  box.innerHTML = off.length ? `<div class="gv-head">チェックを外した項目は作りません。その下の欄に内容を入れると、その内容に合わせてほかの項目を作り、Wordにもそのまま入れます。空欄なら、AIがほかの項目と合うように想定します（出力はしません）。</div>` : "";
 }
 function givenParts(){
   const f=selForm(); if(!f) return {given:[], omitted:[]}; const secs=PARTS_CACHE[f.id]||[]; const on=new Set(pickedParts().map(x=>x.k));
