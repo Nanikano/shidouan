@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>評価づくり</title>
+<meta name="hyoka-version" content="2026.11.27.1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap">
+<style>
+/* ゆうき DADS（デジタル庁デザインシステム @digital-go-jp/design-tokens 2.1.0 準拠・明るい画面のみ） */
+:root{
+  --bg:#ffffff; --surface:#ffffff; --sunk:#f2f2f2; --fg:#333333; --muted:#666666;
+  --line:#cccccc; --line-strong:#949494;
+  --accent:#0017c1; --accent-hover:#00118f; --accent-fg:#ffffff; --accent-soft:#e8f1fe;
+  --ok:#197a4b; --ok-soft:#e6f5ec; --warn:#c74700; --warn-soft:#ffeee2; --err:#ce0000; --err-soft:#fdeeee;
+  --radius:8px;
+  --font:"Noto Sans JP","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.75;letter-spacing:.02em}
+a{color:var(--accent)}
+header.top{border-bottom:1px solid var(--line);padding:12px max(16px,env(safe-area-inset-left)) 0}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;max-width:1180px;margin:0 auto}
+.brand h1{font-size:22px;line-height:1.5;margin:0}
+.brand h1 span{color:var(--accent)}
+.brand .status{font-size:13px;color:var(--muted);margin-left:auto}
+nav.tabs{display:flex;gap:2px;max-width:1180px;margin:8px auto 0;overflow-x:auto}
+nav.tabs button{font:inherit;border:0;background:none;color:var(--muted);padding:8px 14px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent);font-weight:700}
+main{max-width:1180px;margin:0 auto;padding:20px max(16px,env(safe-area-inset-left)) 60px}
+section.tab{display:grid;gap:18px}
+h2{font-size:20px;line-height:1.5;margin:0}
+h3{font-size:18px;line-height:1.6;margin:0}
+p.lead{margin:0;color:var(--muted)}
+.card{border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:grid;gap:12px;min-width:0}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.row>label{flex:1 1 140px}
+label{display:grid;gap:4px;font-size:14px;font-weight:700}
+label small{font-weight:400;color:var(--muted)}
+input[type=text],input[type=number],input[type=password],select,textarea{font:inherit;font-size:16px;border:1px solid var(--line-strong);border-radius:var(--radius);padding:8px 10px;background:#fff;color:var(--fg);width:100%;min-width:0;font-weight:400}
+textarea{min-height:76px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:4px solid #ffd43d;outline-offset:1px;border-color:#000}
+.checks{display:flex;gap:6px 18px;flex-wrap:wrap}
+.checks label{display:flex;gap:6px;align-items:center;font-weight:400;font-size:16px}
+.checks input{width:20px;height:20px}
+button.btn{font:inherit;border:1px solid var(--accent);background:#fff;color:var(--accent);border-radius:var(--radius);padding:8px 16px;cursor:pointer;min-height:44px;font-weight:700}
+button.btn:hover{background:var(--accent-soft)}
+button.btn.primary{background:var(--accent);color:var(--accent-fg)}
+button.btn.primary:hover{background:var(--accent-hover)}
+button.btn.danger{border-color:var(--err);color:var(--err)}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+button.link{font:inherit;border:0;background:none;color:var(--accent);text-decoration:underline;cursor:pointer;padding:0}
+.note{border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;background:var(--sunk);font-size:14px}
+.note.ok{border-color:var(--ok);background:var(--ok-soft)}
+.note.warn{border-color:var(--warn);background:var(--warn-soft)}
+.note.err{border-color:var(--err);background:var(--err-soft)}
+.muted{color:var(--muted);font-size:14px}
+.est{font-size:14px;color:var(--muted)}
+.log{font-size:14px;display:grid;gap:4px;max-height:260px;overflow:auto}
+.log div::before{content:"・"}
+.log .done{color:var(--ok)}
+.log .bad{color:var(--err)}
+.bar{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid var(--line-strong);padding:6px 8px;vertical-align:top;text-align:left}
+th{background:var(--sunk);white-space:nowrap}
+td.c{text-align:center;white-space:nowrap}
+.doc{display:grid;gap:16px}
+.doc>*,.card>*{min-width:0}
+.doc h3{border-left:4px solid var(--accent);padding-left:8px}
+.doc [contenteditable="true"]{outline:1px dashed var(--line-strong)}
+.lint li{margin:2px 0}
+.lint .w{color:var(--warn)}
+.lint .e{color:var(--err)}
+.lint .o{color:var(--ok)}
+.list{display:grid;gap:8px}
+.item{border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.item .t{flex:1 1 260px}
+.item .t b{display:block}
+details summary{cursor:pointer;color:var(--accent)}
+pre.raw{white-space:pre-wrap;font-family:inherit;font-size:13px;background:var(--sunk);padding:10px;border-radius:var(--radius);max-height:420px;overflow:auto;margin:0}
+.gate{position:fixed;inset:0;background:#fff;z-index:50;display:grid;place-items:center;padding:20px}
+.gate .card{max-width:560px;width:100%}
+.badge{display:inline-block;border:1px solid currentColor;border-radius:999px;padding:0 8px;font-size:12px}
+@media (max-width:640px){.brand h1{font-size:19px} main{padding-top:14px}}
+@media print{header.top,.noprint,nav.tabs{display:none!important} main{padding:0} .doc [contenteditable]{outline:0}}
+</style>
+</head>
+<body>
+<header class="top noprint">
+  <div class="brand">
+    <h1>評価<span>づくり</span></h1>
+    <span class="muted" id="ver"></span>
+    <span class="status" id="status"></span>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="make" aria-selected="true">評価をつくる</button>
+    <button role="tab" data-tab="works" aria-selected="false">作った評価</button>
+    <button role="tab" data-tab="notes" aria-selected="false">評価ノート</button>
+    <button role="tab" data-tab="set" aria-selected="false">設定・使い方</button>
+  </nav>
+</header>
+
+<main>
+<!-- ============ 評価をつくる ============ -->
+<section class="tab" id="tab-make">
+  <div class="card noprint">
+    <div class="row">
+      <label>校種<select id="f-school"></select></label>
+      <label>学年<select id="f-grade"></select></label>
+      <label style="flex:2 1 220px">教科<select id="f-subject"></select></label>
+    </div>
+    <div class="row">
+      <label style="flex:3 1 260px">単元名（題材名）<input type="text" id="f-unit" placeholder="例：分数のたし算とひき算"></label>
+      <label>全時数<input type="number" id="f-total" min="1" max="60" value="8"></label>
+      <label>本時<small>（なしは0）</small><input type="number" id="f-now" min="0" max="60" value="0"></label>
+    </div>
+    <label>単元の目標<small>（任意。空ならAIが評価規準とそろう形で参考として作る）</small><textarea id="f-goals"></textarea></label>
+    <label>単元の流れ・主な学習活動<small>（任意。決まっていれば書くと計画がそれに合う）</small><textarea id="f-flow"></textarea></label>
+    <div class="row">
+      <label>教科書<small>（任意）</small><input type="text" id="f-text" placeholder="例：東京書籍 5年上 p.80〜95"></label>
+      <label style="flex:2 1 260px">重視したいこと<small>（任意）</small><input type="text" id="f-wish" placeholder="例：ICTでの振り返り、パフォーマンス課題"></label>
+    </div>
+    <div>
+      <div class="muted" style="margin-bottom:4px">作るもの</div>
+      <div class="checks" id="f-parts">
+        <label><input type="checkbox" value="criteria" checked disabled>単元の評価規準</label>
+        <label><input type="checkbox" value="plan" checked>指導と評価の計画</label>
+        <label><input type="checkbox" value="honji" checked>本時の評価（B・Cへの手だて）</label>
+        <label><input type="checkbox" value="rubric" checked>ルーブリック（記録に残す場面）</label>
+      </div>
+    </div>
+    <p class="muted" style="margin:0">個人名・学校名・日付は入れないでください（AIに送られます）。</p>
+    <div class="row">
+      <button class="btn primary" id="go">評価をつくる</button>
+      <span class="est" id="est"></span>
+    </div>
+  </div>
+  <div class="card noprint" id="run" hidden>
+    <div class="row" style="align-items:center"><h3 style="flex:1">進み具合</h3><button class="btn danger" id="stop">止める</button></div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="log" id="log"></div>
+  </div>
+  <div id="out"></div>
+</section>
+
+<!-- ============ 作った評価 ============ -->
+<section class="tab" id="tab-works" hidden>
+  <h2>作った評価</h2>
+  <div class="list" id="works"></div>
+</section>
+
+<!-- ============ 評価ノート ============ -->
+<section class="tab" id="tab-notes" hidden>
+  <div><h2>評価ノート</h2>
+  <p class="lead">公式資料（観点の趣旨〔別紙4・5〕・学習評価に関する参考資料）から、評価の部分だけを原文どおり・ページつきで一度だけ抜き出して、この端末に保存したものです。2回目からはこれだけをAIに送るので、PDFを毎回読ませるより大幅に安くなります。</p></div>
+  <div class="list" id="notes"></div>
+</section>
+
+<!-- ============ 設定 ============ -->
+<section class="tab" id="tab-set" hidden>
+  <div class="card">
+    <h3>Gemini APIキー</h3>
+    <div class="row">
+      <label style="flex:3 1 300px">APIキー<input type="password" id="s-key" autocomplete="off" placeholder="AIza… または AQ.…"></label>
+      <button class="btn" id="s-keytest">確かめて保存</button>
+    </div>
+    <div id="s-keymsg"></div>
+  </div>
+  <div class="card">
+    <h3>作り方</h3>
+    <label>点検して直す（任意のボタン）に使うモデル
+      <select id="s-checkmodel">
+        <option value="gemini-3.8-flash">3.8 Flash（既定・安い）</option>
+        <option value="gemini-4-argon">4 Argon（高い。12月から料金2倍）</option>
+      </select></label>
+    <label>為替（1ドル＝円）<input type="number" id="s-fx" min="50" max="400" value="150"></label>
+    <label>いつも守ってほしいこと<small>（毎回の指示に付け足します）</small><textarea id="s-memo" placeholder="例：評価方法は「ワークシート」より「ノート」と書く"></textarea></label>
+    <div class="muted" id="s-cost"></div>
+  </div>
+  <div class="card">
+    <h3>費用を抑える仕組み</h3>
+    <ul style="margin:0;padding-left:1.2em">
+      <li>公式資料のPDFは、校種・教科・学年ごとに<b>初回だけ</b>読ませ、評価の部分（観点の趣旨・内容のまとまりごとの評価規準（例）・事例の評価規準と指導と評価の計画・B／Cの例）だけを原文どおり抜き出して保存（評価ノート）。</li>
+      <li>2回目以降はPDFを送らず、評価ノートの文章（その学年の分だけ）を送る。1回の作成はAI呼び出し1回だけ。</li>
+      <li>文末・観点の数・記録に残す評価の回数・本時との対応・「児童／生徒」などは、端末の中で点検（無料）。AIの点検は押したときだけ。</li>
+      <li>学習評価の在り方ハンドブックの要点は指示文に組み込み済みなので送らない。</li>
+      <li>モデルは 3.8 Flash（使えなければ 3.6 Flash → 3.5 Flash-Lite）。</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>データ</h3>
+    <p class="muted" style="margin:0">APIキー・評価ノート・作った評価は、この端末のブラウザの中だけに保存されます。同じサイトで「指導案づくり」を使っている場合、そのAPIキーをそのまま使います。</p>
+    <div class="row"><button class="btn danger" id="s-wipe">この端末の評価づくりのデータをすべて消す</button></div>
+  </div>
+</section>
+</main>
+
+<div class="gate" id="gate" hidden>
+  <div class="card">
+    <h2>はじめに、Gemini APIキーを入れてください</h2>
+    <p class="muted" style="margin:0">Google AI Studio で作ったキーを貼り付けます。キーはこの端末の中だけに保存されます。</p>
+    <input type="password" id="g-key" autocomplete="off" placeholder="AIza… または AQ.…">
+    <div class="row"><button class="btn primary" id="g-go">確かめて始める</button></div>
+    <div id="g-msg"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================================================================== 定数 */
+const VERSION = document.querySelector('meta[name="hyoka-version"]').content;
+const API = "https://generativelanguage.googleapis.com/v1beta";
+const CHAIN = ["gemini-3.8-flash","gemini-3.6-flash","gemini-3.5-flash-lite"];
+const SCHOOL_NAME = {"小":"小学校","中":"中学校","高":"高等学校"};
+const GRADES = {"小":[1,2,3,4,5,6],"中":[1,2,3],"高":[1,2,3]};
+const learner = s => s==="小" ? "児童" : "生徒";
+const N = "https://www.nier.go.jp/kaihatsu/pdf/hyouka/";
+const MORAL_URL = "https://www.mext.go.jp/b_menu/hakusho/nc/__icsFiles/afieldfile/2016/08/23/1376204_2.pdf";
+const BESSHI = {
+  "小":["〔別紙4〕各教科等・各学年等の評価の観点等及びその趣旨（小学校・中学校）","https://www.mext.go.jp/component/b_menu/nc/__icsFiles/afieldfile/2019/04/09/1415196_4_1_2.pdf"],
+  "中":["〔別紙4〕各教科等・各学年等の評価の観点等及びその趣旨（小学校・中学校）","https://www.mext.go.jp/component/b_menu/nc/__icsFiles/afieldfile/2019/04/09/1415196_4_1_2.pdf"],
+  "高":["〔別紙5〕各教科等の評価の観点及びその趣旨（高等学校）","https://www.mext.go.jp/component/b_menu/nc/__icsFiles/afieldfile/2019/04/09/1415196_5.pdf"]
+};
+/* 学習評価に関する参考資料（国立教育政策研究所）：[教科, ファイル, 別紙での教科名, 学年（空＝全学年）] */
+const JIREI = {
+  "小":[["国語","r020326_pri_kokugo.pdf"],["社会","r020326_pri_shakai.pdf",,[3,4,5,6]],["算数","r020326_pri_sansu.pdf"],["理科","r020326_pri_rika.pdf",,[3,4,5,6]],
+        ["生活","r020326_pri_seikat.pdf",,[1,2]],["音楽","r020326_pri_ongak.pdf"],["図画工作","r020326_pri_zugak.pdf"],["家庭","r080729_pri_katei.pdf",,[5,6]],
+        ["体育","r020326_pri_taiku.pdf"],["外国語活動・外国語","r020326_pri_gaikokg.pdf",,[3,4,5,6]],["特別の教科 道徳",null],
+        ["総合的な学習の時間","r020326_pri_sougo.pdf",,[3,4,5,6]],["特別活動","r020326_pri_tokubetsuk.pdf"]],
+  "中":[["国語","r020326_mid_kokugo.pdf"],["社会","r020326_mid_shakai.pdf"],["数学","r020326_mid_sansu.pdf"],["理科","r020326_mid_rika.pdf"],
+        ["音楽","r070214_mid_ongak.pdf"],["美術","r070214_mid_bijyut.pdf"],["保健体育","r020326_mid_hokent.pdf"],["技術・家庭","r070214_mid_g-gijyut.pdf"],
+        ["外国語","r020326_mid_gaikokg.pdf"],["特別の教科 道徳",null],["総合的な学習の時間","r070930_mid_sougo.pdf"],["特別活動","r020326_mid_tokubetsuk.pdf"]],
+  "高":[["国語","r030820_hig_kokugo.pdf"],["地理歴史","r030820_hig_chirirekishi.pdf"],["公民","r030820_hig_koumin.pdf"],["数学","r030820_hig_suugaku.pdf"],
+        ["理科","r030820_hig_rika.pdf"],["保健体育","r030820_hig_hokentaiiku.pdf"],["芸術（音楽）","r030820_hig_ongaku.pdf","芸術"],["芸術（美術）","r061002_hig_bijutsu.pdf","芸術"],
+        ["芸術（工芸）","r030820_hig_kougei.pdf","芸術"],["芸術（書道）","r030820_hig_shodou.pdf","芸術"],["外国語","r030820_hig_gaikokugo.pdf"],
+        ["家庭（共通教科）","r070930_hig_katei.pdf","家庭"],["情報（共通教科）","r030820_hig_jouhou.pdf","情報"],["理数","r040208_hig_risuu.pdf"],
+        ["総合的な探究の時間","r030820_hig_sougou.pdf"],["特別活動","r030820_hig_tokubetsuk.pdf"],
+        ["農業","r030820_hig_nougyou.pdf"],["工業","r030820_hig_kougyou.pdf"],["商業","r030820_hig_shougyou.pdf"],["水産","r030820_hig_suisan.pdf"],
+        ["家庭（専門教科）","r030820_hig_katei_sen.pdf","家庭"],["看護","r030820_hig_kango.pdf"],["情報（専門教科）","r030820_hig_jouhou_sen.pdf","情報"],["福祉","r030820_hig_fukushi.pdf"]]
+};
+const subjInfo = (school, subject) => { const r=(JIREI[school]||[]).find(x=>x[0]===subject)||[]; return {file:r[1], besshiName:r[2]||subject.replace(/（.*）/,""), grades:r[3]||null}; };
+const isMoral = s => s==="特別の教科 道徳";
+const isOwn = s => /総合的な|特別活動/.test(s);
+
+/* ================================================================== 保存 */
+const S = { get:k=>{try{return localStorage.getItem("hy-"+k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem("hy-"+k,v)}catch(e){}}, del:k=>{try{localStorage.removeItem("hy-"+k)}catch(e){}} };
+const DB = {
+  db:null,
+  open(){ if(this.db) return Promise.resolve(this.db); return new Promise((res,rej)=>{ const r=indexedDB.open("hyoka-studio",1);
+    r.onupgradeneeded=()=>{ const d=r.result; ["notes","works"].forEach(s=>{ if(!d.objectStoreNames.contains(s)) d.createObjectStore(s,{keyPath:"id"}); }); };
+    r.onsuccess=()=>{ this.db=r.result; res(this.db); }; r.onerror=()=>rej(r.error); }); },
+  async tx(store, mode, fn){ const d=await this.open(); return new Promise((res,rej)=>{ const t=d.transaction(store,mode); const s=t.objectStore(store); const r=fn(s); t.oncomplete=()=>res(r&&r.result); t.onerror=()=>rej(t.error); }); },
+  get(store,id){ return this.tx(store,"readonly",s=>s.get(id)); },
+  put(store,v){ return this.tx(store,"readwrite",s=>s.put(v)); },
+  del(store,id){ return this.tx(store,"readwrite",s=>s.delete(id)); },
+  all(store){ return this.tx(store,"readonly",s=>s.getAll()); },
+  clear(store){ return this.tx(store,"readwrite",s=>s.clear()); }
+};
+
+/* ================================================================== 小道具 */
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+class AppError extends Error{}
+const sleep = (ms, signal) => new Promise((res,rej)=>{ const t=setTimeout(res,ms); signal?.addEventListener("abort",()=>{ clearTimeout(t); rej(new DOMException("aborted","AbortError")); },{once:true}); });
+const cleanKey = k => String(k||"").replace(/[\s"'“”‘’「」]/g,"");
+/* 同じサイトの「指導案づくり」で入れたキーがあれば使う */
+const apiKey = () => (S.get("key") || (()=>{ try{ return localStorage.getItem("ss-key")||""; }catch(e){ return ""; } })()).trim();
+const fx = () => Number(S.get("fx"))||150;
+function priceOf(model){
+  const now=Date.now(), d=s=>Date.parse(s);
+  if (/^gemini-3\.(8|6)-flash/.test(model)) return now<d("2027-01-01") ? {in:0.75,out:3.75,cache:0.075} : {in:1.5,out:7.5,cache:0.15};
+  if (/^gemini-4-argon/.test(model)) return now<d("2026-12-01") ? {in:2,out:10,cache:0.10} : {in:4,out:20,cache:0.20};
+  if (/^gemini-3\.5-flash-lite/.test(model)) return {in:0.30,out:2.5,cache:0.03};
+  return {in:0.75,out:3.75,cache:0.075};
+}
+function costOf(model,u){ if(!u) return 0; const pt=u.promptTokenCount||0, ca=u.cachedContentTokenCount||0, out=(u.candidatesTokenCount||0)+(u.thoughtsTokenCount||0); const p=priceOf(model); return ((pt-ca)*p.in+ca*p.cache+out*p.out)/1e6; }
+const yen = usd => { const y=usd*fx(); return y<1 ? "1円未満" : "約"+Math.round(y).toLocaleString()+"円"; };
+function addMonthCost(usd){ const m=new Date().toISOString().slice(0,7); const o=JSON.parse(S.get("cost")||"{}"); o[m]=(o[m]||0)+usd; S.set("cost",JSON.stringify(o)); renderStatus(); }
+function monthCost(){ const m=new Date().toISOString().slice(0,7); return (JSON.parse(S.get("cost")||"{}")[m])||0; }
+
+/* ================================================================== Gemini 呼び出し */
+async function errMsg(res){ try{ const j=await res.json(); const e=j.error||{}; let m=e.message||""; const ri=(e.details||[]).find(d=>/RetryInfo/.test(d["@type"]||"")); if(ri&&ri.retryDelay) m+=` [retryDelay ${ri.retryDelay}]`; if(e.status) m+=` [${e.status}]`; return m; }catch(e){ return ""; } }
+function keyIssue(raw){
+  const m=String(raw||"");
+  if(/API_KEY_INVALID|API key not valid/i.test(m)) return "APIキーが正しくありません。Google AI Studioでコピーし直してください。";
+  if(/expired/i.test(m)) return "APIキーの有効期限が切れています。";
+  if(/SERVICE_DISABLED|is disabled|has not been used/i.test(m)) return "このキーのプロジェクトで Gemini API が無効です。";
+  if(/BLOCKED|are blocked/i.test(m)) return "このキーには使える場所・APIの制限がかかっています。";
+  if(/BILLING|billing/i.test(m)) return "このキーのプロジェクトの支払いが止まっています。";
+  if(/location is not supported/i.test(m)) return "いまの接続場所からは Gemini API を使えません。";
+  return null;
+}
+const isUrlErr = raw => /(url|uri|file_uri|fetch|retriev|download|access the|unsupported (file|mime)|could not (read|process|load) (the )?(file|document|pdf))/i.test(String(raw||"")) && !/api key/i.test(String(raw||""));
+function explain(status, raw){
+  const ki=keyIssue(raw); if(ki) return ki;
+  if(status===429) return "回数・トークンの上限に当たりました。少し待ってからもう一度押してください。";
+  if(status>=500) return "Googleのサーバーが混み合っています。少し待ってからもう一度押してください。";
+  return `エラーが起きました（${status}）：${String(raw||"").slice(0,200)}`;
+}
+/* 1回分の呼び出し（ストリーミング）。onChars で受け取った文字数を知らせる */
+async function callOnce({model, system, parts, json, think, signal, onChars}){
+  const body={contents:[{role:"user",parts}], generationConfig:{maxOutputTokens:65536}};
+  if(json) body.generationConfig.responseMimeType="application/json";
+  if(think) body.generationConfig.thinkingConfig={thinkingLevel:think};
+  const memo=(S.get("memo")||"").trim();
+  if(system) body.systemInstruction={parts:[{text:system+(memo?"\n\n# 作成者がいつも守ってほしいこと（最優先）\n"+memo:"")}]};
+  let res;
+  try{ res=await fetch(`${API}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey()},body:JSON.stringify(body),signal}); }
+  catch(e){ if(e.name==="AbortError") throw e; const x=new AppError("Googleに接続できませんでした。インターネット接続を確かめてください。"); x.net=true; throw x; }
+  if(!res.ok){ const raw=await errMsg(res); const x=new AppError(explain(res.status,raw)); x.status=res.status; x.raw=raw; x.key=!!keyIssue(raw); throw x; }
+  const reader=res.body.getReader(), dec=new TextDecoder(); let buf="", text="", finish="", usage=null;
+  const handle=line=>{ line=line.trim(); if(!line.startsWith("data:")) return; let j; try{ j=JSON.parse(line.slice(5)); }catch(e){ return; }
+    if(j.error){ const x=new AppError(explain(j.error.code||500,j.error.message)); x.status=j.error.code||500; x.raw=j.error.message; throw x; }
+    if(j.promptFeedback?.blockReason) throw new AppError("AIが内容を処理できませんでした（"+j.promptFeedback.blockReason+"）。");
+    const c=j.candidates?.[0]; for(const p of (c?.content?.parts||[])) if(typeof p.text==="string" && !p.thought){ text+=p.text; onChars?.(text.length); }
+    if(c?.finishReason) finish=c.finishReason; if(j.usageMetadata) usage=j.usageMetadata; };
+  try{ for(;;){ const {done,value}=await reader.read(); if(done) break; buf+=dec.decode(value,{stream:true}); let i; while((i=buf.indexOf("\n"))>=0){ handle(buf.slice(0,i)); buf=buf.slice(i+1); } } if(buf) handle(buf); }
+  catch(e){ if(e.name==="AbortError"||e instanceof AppError) throw e; const x=new AppError("通信が途中で切れました。"); x.net=true; x.usage=usage; throw x; }
+  if(finish==="MAX_TOKENS"){ const x=new AppError("出力が長すぎて途中で止まりました。"); x.maxTokens=true; x.usage=usage; throw x; }
+  if(!text) throw new AppError("AIから答えが返ってきませんでした。");
+  return {text, usage, model};
+}
+/* 混み合い・回数制限は待ってやり直し、だめなら次のモデルへ */
+async function ask({model, system, parts, json, think, signal, onEvent}){
+  const chain=[model, ...CHAIN.filter(m=>m!==model)]; let last=null, cost=0;
+  for(const m of chain){
+    let th=think;
+    for(let attempt=0; attempt<4; attempt++){
+      try{ onEvent?.({type:"call", model:m, attempt});
+        const r=await callOnce({model:m, system, parts, json, think:th, signal, onChars:n=>onEvent?.({type:"chars", n})});
+        r.cost=cost+costOf(m,r.usage); return r;
+      }catch(e){
+        if(e.name==="AbortError" || !(e instanceof AppError)) throw e;
+        last=e; if(e.usage) cost+=costOf(m,e.usage);
+        if(e.key) throw e;
+        if(isUrlErr(e.raw)){ e.badUrl=true; throw e; }
+        if(e.maxTokens) throw e;
+        if(e.status===400 && th && /think/i.test(e.raw||"")){ th=null; continue; }
+        const limit0=/limit:\s*0\b/.test(e.raw||"");
+        const transient = e.net || e.status>=500 || (e.status===429 && !limit0);
+        if(transient && attempt<3){ const w=e.status===429 ? Math.min(60, Number((String(e.raw).match(/retryDelay\s+([\d.]+)s/)||[])[1])||20) : [5,15,30][attempt];
+          onEvent?.({type:"wait", sec:Math.ceil(w), why:e.status===429?"回数制限":"混み合い"}); await sleep(w*1000, signal); continue; }
+        if([404,403,429].includes(e.status) || (e.status===400 && /not (found|supported)/i.test(e.raw||"")) || transient){ onEvent?.({type:"switch", from:m}); break; }
+        throw e;
+      }
+    }
+  }
+  throw last || new AppError("使えるモデルが見つかりませんでした。");
+}
+function parseJSON(t){
+  t=String(t||"").trim().replace(/^```(?:json)?\s*/i,"").replace(/```\s*$/,"");
+  try{ return JSON.parse(t); }catch(e){}
+  const a=t.indexOf("{"), b=t.lastIndexOf("}"); if(a>=0&&b>a){ try{ return JSON.parse(t.slice(a,b+1)); }catch(e){} }
+  throw new AppError("AIの返事を読み取れませんでした。もう一度押してください。");
+}
+
+/* ================================================================== 評価ノート（一度だけ抜き出して保存） */
+const COPY_RULES = `
+# 書き写しの約束（最重要）
+- 要約・言い換え・補足・推測をしない。原文の文字どおり（句読点・記号・「〜」も）に書き写す。
+- page には資料に印刷されたページ番号を「p.23」の形で書く。印刷された番号がなければ「PDF12枚目」と書く。
+- 見つからない項目は空の配列にし、note にその理由を書く。
+- JSONだけを返す（前置き・説明・コードブロックの印は書かない）。`;
+const noteId = (school, subject, part, grade) => [school, subject, part, grade||"all"].join("|");
+const gradeKeyFor = (school) => school==="高" ? "all" : null;
+function urlOverride(url){ try{ return (JSON.parse(S.get("url-fix")||"{}"))[url]||url; }catch(e){ return url; } }
+function setUrlOverride(orig, nu){ const o=JSON.parse(S.get("url-fix")||"{}"); if(nu) o[orig]=nu; else delete o[orig]; S.set("url-fix",JSON.stringify(o)); }
+
+/* どの部分を、どの資料から、どう抜き出すか */
+function noteJobs(p){
+  const jobs=[]; const g = p.school==="高" ? "all" : String(p.grade);
+  const gl = p.school==="高" ? "全学年" : `第${p.grade}学年`;
+  if(isMoral(p.subject)){
+    jobs.push({part:"moral", grade:"all", title:"道徳科の評価の考え方", src:"「特別の教科 道徳」の指導方法・評価等について（報告）", url:MORAL_URL,
+      prompt:`添付は文部科学省「『特別の教科 道徳』の指導方法・評価等について（報告）」です。道徳科の評価について、指導案の「評価」を書くのに必要な記述を、原文どおり抜き出してください。
+対象：評価の基本的な考え方（数値による評価をしない、個人内評価、大くくりなまとまりを踏まえた評価など）、見取る視点（一面的な見方から多面的・多角的な見方へ発展しているか、道徳的価値の理解を自分自身との関わりの中で深めているか）、評価の方法（発言・記述・話合いの様子などの例）、評価の際の留意点。
+${COPY_RULES}
+# 返すJSONの形
+{"points":[{"topic":"見出しや話題（短く）","text":"原文","page":"p.0"}],"note":""}`});
+    return jobs;
+  }
+  const si=subjInfo(p.school, p.subject);
+  const [bName, bUrl] = BESSHI[p.school];
+  jobs.push({part:"shushi", grade:"all", title:"評価の観点及びその趣旨", src:bName, url:bUrl,
+    prompt:`添付は${bName}です。${SCHOOL_NAME[p.school]}「${si.besshiName}」${p.subject!==si.besshiName?`（${p.subject}）`:""}の「評価の観点及びその趣旨」を、全学年分、原文どおり抜き出してください。${p.school==="高"?"教科全体の観点の趣旨を抜き出す。":"学年（または学年のまとまり）ごとの観点の趣旨があればそれぞれを、教科全体のものがあればそれも抜き出す。"}${isOwn(p.subject)?"この教科等は各学校が観点を定めるので、別紙にある評価の観点とその趣旨の記述（例）を抜き出す。":""}
+${COPY_RULES}
+# 返すJSONの形
+{"items":[{"grades":[1,2],"kanten":"知識・技能","text":"原文","page":"p.0"}],"note":""}
+- grades は対象の学年の数字の配列。教科全体（学年の区別なし）のものは []。`});
+  if(!si.file) return jobs;
+  const url = N+si.file, src = `学習評価に関する参考資料 ${SCHOOL_NAME[p.school]} ${p.subject}（国立教育政策研究所）`;
+  jobs.push({part:"matomari", grade:g, title:`内容のまとまりごとの評価規準（例）・${gl}`, src, url,
+    prompt:`添付は国立教育政策研究所「指導と評価の一体化」のための学習評価に関する参考資料（${SCHOOL_NAME[p.school]} ${p.subject}）です。
+${p.school==="高"?"":`対象は第${p.grade}学年です。`}第2編などにある「内容のまとまりごとの評価規準（例）」のうち、${p.school==="高"?"すべての科目・内容のまとまり":`第${p.grade}学年（第${p.grade}学年を含む学年のまとまり）のすべての内容のまとまり`}について、観点ごとの評価規準（例）を原文どおり抜き出してください。
+あわせて、「単元（題材）の評価規準」を作る手順として資料に書かれている要点（内容のまとまりごとの評価規準を基に具体化する際の注意、文末の書き方、主体的に学習に取り組む態度の評価規準の作り方など）を、原文どおり短く抜き出してください。${isOwn(p.subject)?"\nこの教科等は各学校が評価の観点・内容のまとまりを定めるので、資料に示された評価規準の設定例・作り方の例を抜き出す。":""}
+${COPY_RULES}
+# 返すJSONの形
+{"items":[{"grades":[${p.school==="高"?"":p.grade}],"matomari":"内容のまとまりの名前（科目名・領域名を含めて原文どおり）","kanten":"知識・技能","text":"原文","page":"p.0"}],"steps":[{"text":"原文","page":"p.0"}],"note":""}`});
+  jobs.push({part:"jirei", grade:g, title:`事例の評価規準と指導と評価の計画・${gl}`, src, url,
+    prompt:`添付は国立教育政策研究所「指導と評価の一体化」のための学習評価に関する参考資料（${SCHOOL_NAME[p.school]} ${p.subject}）です。
+第3編の事例のうち、${p.school==="高"?"すべての事例（最大5つ）":`第${p.grade}学年の事例すべて（最大4つ）。第${p.grade}学年の事例がなければ、最も近い学年の事例を2つ`}について、評価に関わる部分だけを原文どおり抜き出してください。
+各事例で抜き出すもの：事例の番号とタイトル、学年、単元名（題材名）、単元の目標、単元の評価規準（観点ごと）、指導と評価の計画（時ごとの主な学習活動・評価の観点・記録に残す評価かどうか・評価方法。学習活動は短く切ってよいが、評価の部分は原文どおり）、観点別の評価の進め方として示された「おおむね満足できる」状況（B）の例、「十分満足できる」状況（A）の例、「努力を要する」状況（C）への手だて、評価方法の工夫。
+${COPY_RULES}
+# 返すJSONの形
+{"cases":[{"no":"事例1","title":"","grades":[${p.school==="高"?"":p.grade}],"unit":"","goals":"原文","criteria":[{"kanten":"","text":"原文"}],"plan":[{"hour":"1","activity":"","eval":"観点・記録の有無・方法（原文）"}],"points":[{"kind":"B|A|C|方法","kanten":"","text":"原文","page":"p.0"}],"pages":"p.0〜p.0"}],"note":""}`});
+  return jobs;
+}
+async function readNotes(p){ const out={}; for(const j of noteJobs(p)){ const n=await DB.get("notes", noteId(p.school,p.subject,j.part,j.grade)); if(n) out[j.part]=n; } return out; }
+async function missingJobs(p){ const miss=[]; for(const j of noteJobs(p)){ if(!(await DB.get("notes", noteId(p.school,p.subject,j.part,j.grade)))) miss.push(j); } return miss; }
+
+async function buildNote(p, job, signal, onEvent){
+  const url=urlOverride(job.url);
+  const upload=await DB.get("notes","upload|"+job.url);     // 手元のPDFで置き換えた資料
+  const filePart = upload ? {inline_data:{mime_type:"application/pdf", data:upload.b64}} : {file_data:{mime_type:"application/pdf", file_uri:url}};
+  const parts=[filePart, {text:job.prompt}];               // 資料を先頭に置く（同じ資料の2回目は自動キャッシュで約9割引き）
+  let r;
+  try{ r=await ask({model:"gemini-3.8-flash", parts, json:true, think:"medium", signal, onEvent}); }
+  catch(e){
+    if(e.maxTokens){ onEvent?.({type:"info", text:"抜き出しが長すぎたため、事例を絞ってやり直します"});
+      parts[1]={text:job.prompt+"\n\n# 追加の約束\n出力が長すぎて途中で止まりました。事例は2つまで、指導と評価の計画の学習活動は20字以内に切ってください。評価規準と評価の部分は原文どおりのままにしてください。"};
+      r=await ask({model:"gemini-3.8-flash", parts, json:true, think:"low", signal, onEvent}); }
+    else throw e;
+  }
+  const data=parseJSON(r.text);
+  const rec={id:noteId(p.school,p.subject,job.part,job.grade), school:p.school, subject:p.subject, part:job.part, grade:job.grade, title:job.title, src:job.src, url, uploaded:!!upload, data, model:r.model, cost:r.cost, date:new Date().toISOString()};
+  await DB.put("notes", rec); addMonthCost(r.cost);
+  return rec;
+}
+
+/* 評価ノートから、その学年の分だけを文章にする（AIに送るのはこれだけ） */
+const gOk = (grades, g) => !Array.isArray(grades) || !grades.length || grades.map(Number).includes(Number(g));
+function noteText(p, notes){
+  const L=[]; const g=p.grade;
+  if(notes.moral){ L.push(`【道徳科の評価の考え方（${notes.moral.src}）】`); for(const x of notes.moral.data.points||[]) L.push(`- ${x.topic?`〔${x.topic}〕`:""}${x.text}（${x.page||""}）`); }
+  if(notes.shushi){ L.push(`【評価の観点及びその趣旨（${notes.shushi.src}）】`);
+    const its=(notes.shushi.data.items||[]).filter(x=>p.all||p.school==="高"||gOk(x.grades,g));
+    for(const x of its) L.push(`- ${x.kanten}${x.grades&&x.grades.length?`（第${x.grades.join("・")}学年）`:""}：${x.text}（${x.page||""}）`); }
+  if(notes.matomari){ const d=notes.matomari.data; L.push(`\n【内容のまとまりごとの評価規準（例）（${notes.matomari.src}）】`);
+    let cur=""; for(const x of (d.items||[]).filter(x=>p.all||p.school==="高"||gOk(x.grades,g))){ if(x.matomari!==cur){ cur=x.matomari; L.push(`■ ${cur}`); } L.push(`- ${x.kanten}：${x.text}（${x.page||""}）`); }
+    if((d.steps||[]).length){ L.push(`\n【単元の評価規準の作り方（同資料）】`); for(const x of d.steps) L.push(`- ${x.text}（${x.page||""}）`); } }
+  if(notes.jirei){ L.push(`\n【事例（${notes.jirei.src}）】`);
+    for(const c of notes.jirei.data.cases||[]){
+      L.push(`■ ${c.no||""} ${c.title||""}（${c.grades&&c.grades.length?"第"+c.grades.join("・")+"学年・":""}${c.unit||""}、${c.pages||""}）`);
+      if(c.goals) L.push(`単元の目標：${c.goals}`);
+      if((c.criteria||[]).length){ L.push("単元の評価規準："); for(const x of c.criteria) L.push(`- ${x.kanten}：${x.text}`); }
+      if((c.plan||[]).length){ L.push("指導と評価の計画："); for(const x of c.plan) L.push(`- 第${x.hour}時 ${x.activity}／${x.eval}`); }
+      if((c.points||[]).length){ L.push("評価の進め方："); for(const x of c.points) L.push(`- 〔${x.kind||""}${x.kanten?"・"+x.kanten:""}〕${x.text}（${x.page||""}）`); }
+    } }
+  return L.join("\n");
+}
+
+/* ================================================================== 作成の指示 */
+function rules(p){
+  const L=learner(p.school);
+  if(isMoral(p.subject)) return `
+- 道徳科は観点別評価・数値による評価をしない。評価規準（3観点）は作らず、評価ノートの「道徳科の評価の考え方」に沿って、${L}の学習状況や道徳性に係る成長の様子を見取る「評価の視点」を viewpoints に書く（一面的な見方から多面的・多角的な見方へ発展しているか、道徳的価値の理解を自分自身との関わりの中で深めているか）。
+- criteria・rubric は空の配列にする。plan は本時を含む流れがあれば書き、evals の mode は「指導」とする。
+- 本時の評価には、見取る場面と方法（発言・ワークシートの記述・話合いの様子など）、見取りたい姿を B に、その姿が見られない${L}への手だてを C に書く。`;
+  const own=isOwn(p.subject);
+  return `
+- 観点：${own?`${p.subject}は各学校が観点を定める。評価ノートの例に倣い、3つの資質・能力（知識及び技能／思考力，判断力，表現力等／学びに向かう力，人間性等）に対応した3観点とする。`:`「知識・技能」「思考・判断・表現」「主体的に学習に取り組む態度」の3観点。趣旨は評価ノートの「評価の観点及びその趣旨」の${p.school==="高"?"":"この学年の"}記述に合わせ、shushi に原文どおり書く。`}
+- 単元の評価規準：評価ノートの「内容のまとまりごとの評価規準（例）」のうち今回の内容に当たるものを基に（base に原文とページを書く）、単元の目標と学習活動に即して具体化する。資料の手順どおり。文末は、知識・技能「〜を理解している」「〜を身に付けている」「〜することができる（している）」、思考・判断・表現「〜している」、主体的に学習に取り組む態度「〜しようとしている」。主体的に学習に取り組む態度は「粘り強く取り組もうとしている側面」と「自らの学習を調整しようとしている側面」の両方が分かるように書く。
+- id は観点の頭文字と丸数字（知①・思①・態①）。各観点1〜3つ。
+- 指導と評価の計画：全時間を1行ずつ（まとめてよい時間は「3〜4」のように）。各時の評価に、評価規準の id、mode（「記録」＝記録に残す評価／「指導」＝指導に生かす評価）、評価方法（何をどう見るか）を書く。記録に残す評価は各観点で単元内1〜2回程度に絞り、すべての評価規準を少なくとも1回は記録に残す。主体的に学習に取り組む態度は、単元の後半など一定の期間を経てから記録に残す。
+- 本時の評価（本時があるとき）：観点と評価規準（単元の評価規準と同じ文言か、本時に具体化したもの）、評価の場面と方法、「おおむね満足できる」状況（B）と判断する${L}の具体的な姿、「努力を要する」状況（C）と判断される${L}への具体的な手だて。本時の目標と本時の評価を必ず対応させる。
+- ルーブリック：「記録」の評価ごとに、場面と A（十分満足できる：Bの姿に質的な高まりや深まりが加わった姿）・B・C（努力を要する状況と手だて）を具体的に書く。評価ノートの事例のB・Cの例を手本にする。${p.subject==="外国語活動・外国語"&&p.school==="小"&&p.grade<=4?`
+- 外国語活動（第3・4学年）は評定を付けず、観点別の学習状況を文章で記述する評価である点に合わせる。`:""}`;
+}
+function makePrompt(p){
+  const L=learner(p.school);
+  const want=p.parts;
+  return `次の条件で、${SCHOOL_NAME[p.school]}第${p.grade}学年「${p.subject}」の単元の評価を作ってください。
+
+# 条件
+- 単元名・題材名：${p.unit}
+- 全時数：${p.total}時間${p.now?`\n- 本時：全${p.total}時間中の第${p.now}時`:"\n- 本時：指定なし（honji は null）"}
+${p.goals?`- 単元の目標（作成者が決めたもの。この目標に評価規準を対応させる）：\n${p.goals}`:"- 単元の目標：指定なし。評価規準とそろう目標を参考として unit_goals に書く（学習指導要領の指導事項の言葉を基に、資質・能力の3つの柱で）。"}
+${p.flow?`- 単元の流れ・主な学習活動（作成者が決めたもの。これに合わせる）：\n${p.flow}`:""}
+${p.text?`- 教科書：${p.text}（教科書に何があるかは推測で書かない。題材や例題は差し替え可能な書き方にし、確かめてほしい点を memo に書く）`:""}
+${p.wish?`- 重視したいこと：${p.wish}`:""}
+- 作るもの：単元の評価規準${want.includes("plan")?"・指導と評価の計画":""}${want.includes("honji")&&p.now?"・本時の評価":""}${want.includes("rubric")?"・ルーブリック":""}（作らないものは空の配列か null）
+- 学習者は「${L}」と書く。
+
+# 作り方（添付の評価ノートに厳密に従う。評価ノートは公式資料から原文どおり抜き出したもの）
+${rules(p)}
+- 評価ノートにない内容を、資料にあるように書かない。根拠にしたページは base・memo に書く。迷った点・作成者に確かめてほしい点は memo に短く書く。
+
+# 返すJSONの形（JSONだけを返す）
+{"unit_goals":[{"kanten":"知識及び技能","text":""}],
+ "shushi":[{"kanten":"知識・技能","text":"評価ノートの原文"}],
+ "base":[{"kanten":"知識・技能","text":"基にした内容のまとまりごとの評価規準（例）の原文","src":"資料名 p.0"}],
+ "criteria":[{"id":"知①","kanten":"知識・技能","text":""}],
+ "viewpoints":[],
+ "plan":[{"hour":"1","activity":"主な学習活動","evals":[{"id":"知①","mode":"記録","method":"評価方法"}]}],
+ "honji":{"hour":0,"goal":"本時の目標","evals":[{"id":"思①","criterion":"","scene":"評価の場面","method":"評価方法","B":"","C":""}]},
+ "rubric":[{"id":"知①","hour":"","scene":"","A":"","B":"","C":""}],
+ "memo":[""]}`;
+}
+const SYSTEM = "あなたは学習評価に詳しい教員で、「指導と評価の一体化」のための学習評価に関する参考資料（国立教育政策研究所）と学習評価の在り方ハンドブックに沿って、単元の評価規準・指導と評価の計画・本時の評価を作ります。添付の評価ノート（公式資料から原文どおり抜き出したもの）だけを根拠にし、資料の文言に合わせ、具体的に書きます。";
+
+function reviseParts(p, notesTxt, result, issues, instruction){
+  return [{text:`【評価ノート（公式資料から原文どおり抜き出したもの）】\n${notesTxt}`},
+    {text:`${makePrompt(p)}
+
+# いまの案（JSON）
+${JSON.stringify(result)}
+
+# やること
+${instruction?`作成者からの指示：${instruction}\nこの指示に従って直してください。`:"いまの案を、評価ノートと上の作り方に照らして厳しく点検し、直してください。観点の趣旨・評価規準（例）との対応、文末、主体的に学習に取り組む態度の二つの側面、記録に残す評価と指導に生かす評価の区別と回数・時期、評価方法の具体性、本時の目標と本時の評価の対応、B の姿と C への手だての具体性、ルーブリックの A・B・C の差を一つずつ確かめる。"}
+${issues&&issues.length?`端末の点検で見つかった点（必ず直す）：\n${issues.map(x=>"- "+x).join("\n")}`:""}
+直したところは changes に「何を・なぜ」を短く書く。直す必要がなければ changes は空にし、result にいまの案をそのまま入れる。
+
+# 返すJSONの形
+{"changes":[""],"result":{上と同じ形}}`}];
+}
+
+/* ================================================================== 端末内の点検（無料） */
+const KANTEN3 = ["知識・技能","思考・判断・表現","主体的に学習に取り組む態度"];
+const kShort = k => /知識/.test(k)?"知":/思考/.test(k)?"思":/主体|態度|学びに向かう/.test(k)?"態":String(k||"").slice(0,1);
+function hourRange(h){ const m=String(h||"").replace(/[〜~～ー－-]/g,"-").match(/(\d+)(?:\s*-\s*(\d+))?/); if(!m) return [NaN,NaN]; return [Number(m[1]), Number(m[2]||m[1])]; }
+function fixLearner(obj, school){
+  const s=JSON.stringify(obj);
+  const t = school==="小" ? s.replace(/生徒(?!指導)/g,"児童") : s.replace(/児童(?!生徒)/g,"生徒");
+  return JSON.parse(t);
+}
+function lint(p, r){
+  const out=[]; const W=t=>out.push({lv:"w",t}), E=t=>out.push({lv:"e",t});
+  if(isMoral(p.subject)){
+    if(!(r.viewpoints||[]).length) E("評価の視点がありません。");
+    if(p.now && !(r.honji&&r.honji.evals&&r.honji.evals.length)) E("本時の評価がありません。");
+    (r.honji?.evals||[]).forEach(e=>{ if(!e.scene&&!e.method) W("本時の評価に、見取る場面・方法がありません。"); });
+    return out;
+  }
+  const crit=r.criteria||[]; const ids=new Set(crit.map(c=>c.id));
+  const ks=[...new Set(crit.map(c=>kShort(c.kanten)))];
+  if(!isOwn(p.subject)){ for(const k of KANTEN3) if(!crit.some(c=>c.kanten===k)) E(`観点「${k}」の評価規準がありません（または観点の名前が違います）。`); }
+  else if(ks.length<3) W("観点が3つそろっていません。");
+  for(const c of crit){
+    const t=String(c.text||"").trim().replace(/[。．]$/,"");
+    const k=kShort(c.kanten);
+    if(k==="態" && !/うとしている$/.test(t)) E(`${c.id}：文末が「〜しようとしている」になっていません。`);
+    else if(k==="思" && !/している$/.test(t)) E(`${c.id}：文末が「〜している」になっていません。`);
+    else if(k==="知" && !/(している|できる|身に付けている|理解している)$/.test(t)) W(`${c.id}：文末が「〜を理解している／身に付けている／することができる」になっていません。`);
+  }
+  const att=crit.filter(c=>kShort(c.kanten)==="態").map(c=>c.text).join("");
+  if(att){ if(!/粘り強/.test(att)) W("主体的に学習に取り組む態度に「粘り強く取り組もうとしている側面」が見当たりません。");
+    if(!/(調整|見通し|振り返|改善|修正|自らの学習|自分の学習|学習の仕方|方法を考)/.test(att)) W("主体的に学習に取り組む態度に「自らの学習を調整しようとしている側面」が見当たりません。"); }
+  if(p.parts.includes("plan")){
+    const plan=r.plan||[]; if(!plan.length) E("指導と評価の計画がありません。");
+    let covered=0; plan.forEach(x=>{ const [a,b]=hourRange(x.hour); if(!isNaN(b)) covered=Math.max(covered,b); });
+    if(covered && covered!==Number(p.total)) W(`計画の時間が全${p.total}時間と合っていません（最後が第${covered}時）。`);
+    const rec={}; const recIds=new Set(); let firstAtt=null;
+    plan.forEach(x=>(x.evals||[]).forEach(e=>{ if(e.id && !ids.has(e.id)) W(`計画の第${x.hour}時にある「${e.id}」は評価規準にありません。`);
+      if(e.mode==="記録"){ const k=kShort((crit.find(c=>c.id===e.id)||{}).kanten||e.id); rec[k]=(rec[k]||0)+1; recIds.add(e.id);
+        if(k==="態"){ const h=hourRange(x.hour)[0]; if(firstAtt==null||h<firstAtt) firstAtt=h; } }
+      if(e.mode==="記録" && !String(e.method||"").trim()) W(`第${x.hour}時の記録に残す評価（${e.id}）に評価方法がありません。`); }));
+    for(const c of crit) if(!recIds.has(c.id)) W(`${c.id} を記録に残す時間がありません。`);
+    for(const k of ks){ const n=rec[k]||0, nc=crit.filter(c=>kShort(c.kanten)===k).length; if(n>Math.max(2,nc)) W(`「${k}」の記録に残す評価が${n}回あります（各観点で単元内1〜2回程度に絞る）。`); }
+    if(firstAtt!=null && Number(p.total)>=3 && firstAtt<=Math.floor(Number(p.total)/3)) W(`主体的に学習に取り組む態度を第${firstAtt}時に記録に残しています（一定の期間を経た単元の後半が基本）。`);
+    if(p.now){ const row=plan.find(x=>{ const [a,b]=hourRange(x.hour); return p.now>=a && p.now<=b; });
+      const hj=(r.honji?.evals||[]).map(e=>e.id);
+      if(row && hj.length && !hj.some(id=>(row.evals||[]).some(e=>e.id===id))) W(`本時の評価（${hj.join("・")}）が、計画の第${p.now}時の評価と合っていません。`); }
+  }
+  if(p.now && p.parts.includes("honji")){
+    const h=r.honji; if(!h||!(h.evals||[]).length) E("本時の評価がありません。");
+    else { if(!h.goal) W("本時の目標がありません。"); h.evals.forEach(e=>{ if(!String(e.B||"").trim()) E(`本時の評価（${e.id}）に B の姿がありません。`); if(!String(e.C||"").trim()) E(`本時の評価（${e.id}）に C への手だてがありません。`); if(!String(e.method||"").trim()) W(`本時の評価（${e.id}）に評価方法がありません。`); }); }
+  }
+  if(p.parts.includes("rubric")){
+    const rb=new Set((r.rubric||[]).map(x=>x.id));
+    const recs=new Set(); (r.plan||[]).forEach(x=>(x.evals||[]).forEach(e=>{ if(e.mode==="記録") recs.add(e.id); }));
+    for(const id of recs) if(!rb.has(id)) W(`記録に残す評価「${id}」のルーブリックがありません。`);
+    (r.rubric||[]).forEach(x=>{ if(!x.A||!x.B||!x.C) W(`ルーブリック「${x.id}」に A・B・C のどれかがありません。`); });
+  }
+  return out;
+}
+
+/* ================================================================== 表示 */
+function docHtml(w){
+  const p=w.inputs, r=w.result, L=learner(p.school);
+  const T=(head, rows)=>`<div class="tablewrap"><table>${head.some(Boolean)?`<thead><tr>${head.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead>`:""}<tbody>${rows.join("")}</tbody></table></div>`;
+  const ed = ' contenteditable="true"';
+  const H=[];
+  H.push(`<h2${ed}>${esc(SCHOOL_NAME[p.school])} 第${esc(p.grade)}学年 ${esc(p.subject)}「${esc(p.unit)}」の評価</h2>`);
+  if((r.unit_goals||[]).length && !p.goals) H.push(`<div><h3>単元の目標（参考）</h3>${T(["",""], r.unit_goals.map(g=>`<tr><th>${esc(g.kanten)}</th><td${ed}>${esc(g.text)}</td></tr>`))}</div>`);
+  else if(p.goals) H.push(`<div><h3>単元の目標</h3><p${ed} style="white-space:pre-wrap;margin:0">${esc(p.goals)}</p></div>`);
+  if(isMoral(p.subject)){
+    if((r.viewpoints||[]).length) H.push(`<div><h3>評価の視点</h3><ul${ed}>${r.viewpoints.map(v=>`<li>${esc(typeof v==="string"?v:v.text)}</li>`).join("")}</ul></div>`);
+  } else {
+    if((r.criteria||[]).length){
+      const ks=[...new Set(r.criteria.map(c=>c.kanten))];
+      H.push(`<div><h3>単元の評価規準</h3>${T(ks, [`<tr>${ks.map(k=>`<td${ed}>${r.criteria.filter(c=>c.kanten===k).map(c=>`${esc(c.id)}　${esc(c.text)}`).join("<br>")}</td>`).join("")}</tr>`])}</div>`);
+    }
+  }
+  if((r.plan||[]).length && p.parts.includes("plan")){
+    const ks=[...new Set((r.criteria||[]).map(c=>kShort(c.kanten)))]; const kn=ks.length?ks:["評価"];
+    const rows=r.plan.map(x=>{ const cells=kn.map(k=>{ const es=(x.evals||[]).filter(e=>kShort(((r.criteria||[]).find(c=>c.id===e.id)||{}).kanten||e.id)===k || !ks.length); return `<td class="c"${ed}>${es.map(e=>(e.mode==="記録"?"◎":"○")+esc(e.id||"")).join("<br>")}</td>`; }).join("");
+      const meth=(x.evals||[]).filter(e=>e.method).map(e=>`${esc(e.id||"")}：${esc(e.method)}`).join("<br>");
+      return `<tr${p.now&&(()=>{const[a,b]=hourRange(x.hour);return p.now>=a&&p.now<=b;})()?' style="background:#e8f1fe"':""}><td class="c">${esc(x.hour)}</td><td${ed}>${esc(x.activity)}</td>${cells}<td${ed}>${meth}</td></tr>`; });
+    H.push(`<div><h3>指導と評価の計画（全${esc(p.total)}時間）</h3>${T(["時","主な学習活動",...kn,"評価方法"], rows)}<p class="muted" style="margin:4px 0 0">◎…記録に残す評価　○…指導に生かす評価${p.now?"　（色付きの行が本時）":""}</p></div>`);
+  }
+  if(p.now && r.honji && (r.honji.evals||[]).length && p.parts.includes("honji")){
+    H.push(`<div><h3>本時（第${esc(p.now)}時）の評価</h3>${r.honji.goal?`<p style="margin:0 0 6px"><b>本時の目標</b>　<span${ed}>${esc(r.honji.goal)}</span></p>`:""}${T(["観点・評価規準","場面と方法",`「おおむね満足できる」状況（B）と判断する${L}の姿`,`「努力を要する」状況（C）と判断される${L}への手だて`], r.honji.evals.map(e=>`<tr><td${ed}>${esc(e.id)}　${esc(e.criterion)}</td><td${ed}>${esc(e.scene)}${e.scene&&e.method?"<br>":""}${esc(e.method)}</td><td${ed}>${esc(e.B)}</td><td${ed}>${esc(e.C)}</td></tr>`))}</div>`);
+  }
+  if((r.rubric||[]).length && p.parts.includes("rubric")){
+    H.push(`<div><h3>ルーブリック（記録に残す評価）</h3>${T(["評価規準","場面","A 十分満足できる","B おおむね満足できる","C 努力を要する（手だて）"], r.rubric.map(x=>{ const c=(r.criteria||[]).find(c=>c.id===x.id); return `<tr><td${ed}>${esc(x.id)}${c?"　"+esc(c.text):""}</td><td${ed}>${x.hour?"第"+esc(x.hour)+"時　":""}${esc(x.scene)}</td><td${ed}>${esc(x.A)}</td><td${ed}>${esc(x.B)}</td><td${ed}>${esc(x.C)}</td></tr>`; }))}</div>`);
+  }
+  return H.join("");
+}
+function renderWork(w){
+  const r=w.result, issues=w.lint||[];
+  const lintHtml = issues.length ? `<ul class="lint" style="margin:0;padding-left:1.2em">${issues.map(x=>`<li class="${x.lv}">${x.lv==="e"?"要修正":"確認"}：${esc(x.t)}</li>`).join("")}</ul>` : `<p class="lint" style="margin:0"><span class="o">端末の点検：問題は見つかりませんでした。</span></p>`;
+  const memo=(r.memo||[]).filter(Boolean), base=(r.base||[]), sh=(r.shushi||[]);
+  $("out").innerHTML = `
+  <div class="card noprint">
+    <div class="row" style="align-items:center"><h3 style="flex:1">点検</h3><span class="muted">${esc(w.costNote||"")}</span></div>
+    ${lintHtml}
+    ${(w.changes||[]).length?`<details open><summary>AIが直したところ（${w.changes.length}件）</summary><ul>${w.changes.map(c=>`<li>${esc(c)}</li>`).join("")}</ul></details>`:""}
+    <div class="row">
+      <button class="btn" id="w-check">AIで点検して直す（約${w.estCheck||"3〜6"}円）</button>
+      <input type="text" id="w-inst" placeholder="書き直しの指示（例：思①の評価方法をノートの記述にする）" style="flex:3 1 280px">
+      <button class="btn" id="w-redo">指示で書き直す</button>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="w-word">Wordで保存</button>
+      <button class="btn" id="w-print">印刷</button>
+      <button class="btn" id="w-copy">文章をコピー</button>
+      <button class="btn" id="w-save">表の直接編集を保存</button>
+    </div>
+    <p class="muted" style="margin:0">表の文字はそのままクリックして直せます。直したら「表の直接編集を保存」を押してください（Word・印刷・コピーにも反映）。</p>
+  </div>
+  <div class="card doc" id="doc">${w.html || docHtml(w)}</div>
+  <div class="card noprint">
+    <details><summary>根拠（観点の趣旨・基にした評価規準（例））</summary>
+      ${sh.length?`<p><b>観点の趣旨</b></p><ul>${sh.map(x=>`<li>${esc(x.kanten)}：${esc(x.text)}</li>`).join("")}</ul>`:""}
+      ${base.length?`<p><b>基にした内容のまとまりごとの評価規準（例）</b></p><ul>${base.map(x=>`<li>${esc(x.kanten)}：${esc(x.text)}（${esc(x.src||"")}）</li>`).join("")}</ul>`:""}
+    </details>
+    ${memo.length?`<details open><summary>確認メモ（${memo.length}件）</summary><ul>${memo.map(m=>`<li>${esc(m)}</li>`).join("")}</ul></details>`:""}
+  </div>`;
+  $("w-check").onclick=()=>revise(w,"");
+  $("w-redo").onclick=()=>{ const t=$("w-inst").value.trim(); if(!t){ $("w-inst").focus(); return; } revise(w,t); };
+  $("w-word").onclick=()=>saveWord(w);
+  $("w-print").onclick=()=>window.print();
+  $("w-copy").onclick=async()=>{ try{ await navigator.clipboard.writeText($("doc").innerText); toast("コピーしました"); }catch(e){ toast("コピーできませんでした"); } };
+  $("w-save").onclick=async()=>{ w.html=$("doc").innerHTML; await DB.put("works", w); toast("保存しました"); };
+}
+function toast(t){ const d=document.createElement("div"); d.className="note ok"; d.style.cssText="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
+function saveWord(w){
+  const body=($("doc")?$("doc").innerHTML:docHtml(w)).replace(/ contenteditable="true"/g,"").replace(/ style="background:#e8f1fe"/g,' style="background:#eeeeee"').replace(/<p class="muted"/g,'<p');
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${esc(w.inputs.unit)}</title>
+<style>@page{size:21cm 29.7cm;margin:2cm 1.8cm} body{font-family:"游明朝","Yu Mincho","MS 明朝",serif;font-size:10.5pt;line-height:1.6;color:#000}
+h2{font-size:14pt;text-align:center} h3{font-size:11pt;margin:12pt 0 4pt} table{border-collapse:collapse;width:100%} th,td{border:1px solid #000;padding:3pt 5pt;vertical-align:top;font-size:10pt} th{background:#eeeeee}</style></head><body>${body}</body></html>`;
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+html],{type:"application/msword"}));
+  a.download=`${w.inputs.unit.replace(/[\\/:*?"<>|]/g,"_")}_評価.doc`; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+
+/* ================================================================== 進み具合 */
+let CTL=null;
+function logLine(t, cls){ const d=document.createElement("div"); d.textContent=t; if(cls) d.className=cls; $("log").appendChild(d); $("log").scrollTop=1e9; return d; }
+function setBar(r){ $("bar").style.width=Math.round(r*100)+"%"; }
+function evHandler(line){ return ev=>{
+  if(ev.type==="chars") line.textContent=line.dataset.base+`（受け取り中 ${ev.n.toLocaleString()}字）`;
+  else if(ev.type==="wait") line.textContent=line.dataset.base+`（${ev.why}のため${ev.sec}秒待ってやり直し）`;
+  else if(ev.type==="switch") logLine(`${ev.from} が使えないため、次のモデルに切り替えます`);
+  else if(ev.type==="info") logLine(ev.text);
+}; }
+function startRun(){ $("run").hidden=false; $("log").innerHTML=""; setBar(0); CTL=new AbortController(); $("go").disabled=true; return CTL.signal; }
+function endRun(){ $("go").disabled=false; $("stop").disabled=true; setTimeout(()=>{ $("stop").disabled=false; },10); CTL=null; }
+
+/* ================================================================== 作成の流れ */
+function readForm(){
+  return { school:$("f-school").value, grade:Number($("f-grade").value), subject:$("f-subject").value, unit:$("f-unit").value.trim(),
+    total:Math.max(1,Number($("f-total").value)||1), now:Math.max(0,Number($("f-now").value)||0),
+    goals:$("f-goals").value.trim(), flow:$("f-flow").value.trim(), text:$("f-text").value.trim(), wish:$("f-wish").value.trim(),
+    parts:[...document.querySelectorAll("#f-parts input:checked")].map(x=>x.value) };
+}
+const NAME_RE=/(先生|さん|くん|君|ちゃん|様)(?![a-zA-Z])|\d{4}[\/年.-]\d{1,2}[\/月.-]\d{1,2}|令和\d+年\d+月\d+日|学校(?!教育)/;
+async function run(){
+  const p=readForm();
+  if(!p.unit){ $("f-unit").focus(); toast("単元名を入れてください"); return; }
+  if(p.now>p.total){ $("f-now").focus(); toast("本時が全時数より大きくなっています"); return; }
+  if(!apiKey()){ showGate(); return; }
+  const sendText=[p.unit,p.goals,p.flow,p.text,p.wish].join(" ");
+  if(NAME_RE.test(sendText) && !confirm("入力に、名前・日付・学校名らしい言葉があります。AIに送られます。このまま作りますか？")) return;
+  const signal=startRun(); let total=0;
+  try{
+    const miss=await missingJobs(p);
+    const steps=miss.length+1; let done=0;
+    if(miss.length){
+      logLine(`はじめての${SCHOOL_NAME[p.school]}${p.school==="高"?"":"第"+p.grade+"学年"}「${p.subject}」なので、公式資料から評価の部分だけを抜き出して評価ノートを作ります（次からは不要）。`);
+      // 別紙（観点の趣旨）と参考資料は別のPDFなので同時に。参考資料の2つは同じPDFなので続けて（2回目は自動キャッシュで安い）
+      const byUrl={}; for(const j of miss) (byUrl[j.url]=byUrl[j.url]||[]).push(j);
+      await Promise.all(Object.values(byUrl).map(async list=>{
+        for(const j of list){
+          const line=logLine(`評価ノート：${j.title}（${j.src}）`); line.dataset.base=line.textContent;
+          try{ const rec=await buildNote(p, j, signal, evHandler(line)); total+=rec.cost; line.textContent=line.dataset.base+` … 完了（${yen(rec.cost)}）`; line.className="done"; }
+          catch(e){ line.className="bad";
+            if(e.badUrl){ line.textContent=line.dataset.base+" … 資料をGoogleが読めませんでした。「評価ノート」タブで新しいURLを入れるか、PDFを加えてください。"; }
+            throw e; }
+          setBar(++done/steps*0.9);
+        }
+      }));
+    }
+    const notes=await readNotes(p); const ntxt=noteText(p, notes);
+    if(!ntxt.trim()) throw new AppError("評価ノートが空です。「評価ノート」タブで作り直してください。");
+    const line=logLine(`評価をつくる（評価ノート約${ntxt.length.toLocaleString()}字だけを送る・3.8 Flash）`); line.dataset.base=line.textContent;
+    const parts=[{text:`【評価ノート（公式資料から原文どおり抜き出したもの）】\n${ntxt}`},{text:makePrompt(p)}];
+    const r=await ask({model:"gemini-3.8-flash", system:SYSTEM, parts, json:true, think:"high", signal, onEvent:evHandler(line)});
+    total+=r.cost; addMonthCost(r.cost);
+    let result=fixLearner(parseJSON(r.text), p.school);
+    line.textContent=line.dataset.base+` … 完了（${yen(r.cost)}）`; line.className="done"; setBar(1);
+    const w={id:"w"+Date.now(), date:new Date().toISOString(), inputs:p, result, lint:lint(p,result), cost:total, model:r.model,
+      costNote:`今回の費用 ${yen(total)}${miss.length?"（評価ノート作成を含む）":""}`, estCheck:estYen(ntxt.length, 1.6)};
+    await DB.put("works", w); renderWork(w); renderWorks();
+    logLine(`できあがり。端末の点検：${w.lint.length?w.lint.length+"件の確認事項":"問題なし"}`, "done");
+  }catch(e){ handleErr(e); }
+  finally{ endRun(); }
+}
+async function revise(w, instruction){
+  const p=w.inputs; const signal=startRun();
+  try{
+    const notes=await readNotes(p); const ntxt=noteText(p, notes);
+    const model=S.get("checkmodel")||"gemini-3.8-flash";
+    const line=logLine(instruction?`指示で書き直す（${model}）`:`AIで点検して直す（${model}）`); line.dataset.base=line.textContent;
+    const r=await ask({model, system:SYSTEM, parts:reviseParts(p, ntxt, w.result, (w.lint||[]).map(x=>x.t), instruction), json:true, think:"high", signal, onEvent:evHandler(line)});
+    addMonthCost(r.cost);
+    const j=parseJSON(r.text); const result=fixLearner(j.result||w.result, p.school);
+    line.textContent=line.dataset.base+` … 完了（${yen(r.cost)}）`; line.className="done"; setBar(1);
+    Object.assign(w, {result, lint:lint(p,result), changes:j.changes||[], html:null, cost:(w.cost||0)+r.cost, costNote:`これまでの費用 ${yen((w.cost||0)+r.cost)}`});
+    await DB.put("works", w); renderWork(w); renderWorks();
+  }catch(e){ handleErr(e); }
+  finally{ endRun(); }
+}
+function handleErr(e){
+  if(e && e.name==="AbortError"){ logLine("止めました。", "bad"); return; }
+  logLine((e && e.message) || String(e), "bad");
+  if(e && e.key){ toast("APIキーを確かめてください"); }
+}
+/* 費用の目安（評価ノートの文字数から） */
+function estYen(chars, mult){ const tin=chars*1.1+3000, tout=9000; const p=priceOf("gemini-3.8-flash"); const usd=(tin*p.in+tout*p.out)/1e6*(mult||1); return Math.max(1,Math.round(usd*fx())); }
+async function updateEst(){
+  const p=readForm(); if(!p.subject){ $("est").textContent=""; return; }
+  const miss=await missingJobs(p);
+  if(miss.length) $("est").textContent=`はじめてなので評価ノート（資料${new Set(miss.map(j=>j.url)).size}つから抜き出し）を作ります：約10〜30円（一度だけ）＋作成 約3〜6円`;
+  else { const t=noteText(p, await readNotes(p)); $("est").textContent=`評価ノートあり：作成 約${estYen(t.length)}円（PDFは送りません）`; }
+}
+
+/* ================================================================== 作った評価・評価ノートの一覧 */
+async function renderWorks(){
+  const ws=(await DB.all("works")).sort((a,b)=>b.date.localeCompare(a.date));
+  $("works").innerHTML = ws.length ? ws.map(w=>`<div class="item"><div class="t"><b>${esc(w.inputs.unit)}</b><span class="muted">${esc(SCHOOL_NAME[w.inputs.school])}${esc(w.inputs.grade)}年 ${esc(w.inputs.subject)}・全${esc(w.inputs.total)}時間${w.inputs.now?"・本時"+esc(w.inputs.now):""}　${new Date(w.date).toLocaleString("ja-JP")}　${yen(w.cost||0)}</span></div>
+    <button class="btn" data-open="${w.id}">開く</button><button class="btn" data-reuse="${w.id}">条件を使う</button><button class="btn danger" data-del="${w.id}">削除</button></div>`).join("") : `<p class="muted">まだありません。</p>`;
+  $("works").querySelectorAll("[data-open]").forEach(b=>b.onclick=async()=>{ const w=await DB.get("works",b.dataset.open); showTab("make"); renderWork(w); });
+  $("works").querySelectorAll("[data-reuse]").forEach(b=>b.onclick=async()=>{ const w=await DB.get("works",b.dataset.reuse); fillForm(w.inputs); showTab("make"); });
+  $("works").querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{ if(!confirm("この評価を削除しますか？元に戻せません。")) return; await DB.del("works",b.dataset.del); renderWorks(); });
+}
+function fillForm(p){
+  $("f-school").value=p.school; onSchool(); $("f-grade").value=p.grade; $("f-subject").value=p.subject;
+  $("f-unit").value=p.unit; $("f-total").value=p.total; $("f-now").value=p.now; $("f-goals").value=p.goals||""; $("f-flow").value=p.flow||""; $("f-text").value=p.text||""; $("f-wish").value=p.wish||"";
+  document.querySelectorAll("#f-parts input").forEach(x=>{ if(!x.disabled) x.checked=p.parts.includes(x.value); }); updateEst();
+}
+const PART_NAME={shushi:"観点の趣旨",matomari:"内容のまとまりごとの評価規準（例）",jirei:"事例の評価規準・計画",moral:"道徳科の評価の考え方"};
+async function renderNotes(){
+  const ns=(await DB.all("notes")).filter(n=>!String(n.id).startsWith("upload|")).sort((a,b)=>a.id.localeCompare(b.id));
+  const ups=(await DB.all("notes")).filter(n=>String(n.id).startsWith("upload|"));
+  $("notes").innerHTML = (ns.length ? ns.map(n=>{ const cnt = n.data.items?n.data.items.length+"項目" : n.data.cases?n.data.cases.length+"事例" : n.data.points?n.data.points.length+"項目" : "";
+    return `<div class="item"><div class="t"><b>${esc(SCHOOL_NAME[n.school])} ${esc(n.subject)}${n.grade!=="all"?"　第"+esc(n.grade)+"学年":""}：${esc(PART_NAME[n.part]||n.part)}</b>
+      <span class="muted">${esc(n.src)}${n.uploaded?"（手元のPDF）":""}・${cnt}・${new Date(n.date).toLocaleDateString("ja-JP")}・${yen(n.cost||0)}</span>
+      ${n.data.note?`<span class="muted">AIのメモ：${esc(n.data.note)}</span>`:""}
+      <details><summary>中身を見る</summary><pre class="raw">${esc(noteText({school:n.school, grade:Number(n.grade)||0, subject:n.subject, all:true}, {[n.part]:n}) || JSON.stringify(n.data,null,1))}</pre></details></div>
+      <button class="btn" data-url="${esc(n.url)}" data-id="${esc(n.id)}">資料の場所を変える</button>
+      <button class="btn danger" data-ndel="${esc(n.id)}">削除（次に作るとき作り直し）</button></div>`; }).join("")
+    : `<p class="muted">まだありません。「評価をつくる」を初めて押したときに、その校種・教科・学年の分が自動で作られます。</p>`)
+    + (ups.length ? `<h3>置き換えに使う手元のPDF</h3>`+ups.map(u=>`<div class="item"><div class="t"><b>${esc(u.name)}</b><span class="muted">${esc(u.id.slice(7))} の代わり</span></div><button class="btn danger" data-udel="${esc(u.id)}">外す</button></div>`).join("") : "");
+  $("notes").querySelectorAll("[data-ndel]").forEach(b=>b.onclick=async()=>{ if(!confirm("この評価ノートを削除しますか？次に作るとき、もう一度資料を読ませます（数円〜十数円）。")) return; await DB.del("notes",b.dataset.ndel); renderNotes(); updateEst(); });
+  $("notes").querySelectorAll("[data-udel]").forEach(b=>b.onclick=async()=>{ await DB.del("notes",b.dataset.udel); renderNotes(); });
+  $("notes").querySelectorAll("[data-url]").forEach(b=>b.onclick=()=>changeSource(b.dataset.url));
+}
+async function changeSource(orig){
+  const cur=urlOverride(orig);
+  const nu=prompt(`この資料の新しいURL（PDF）を入れてください。空のままOKで元に戻します。\nキャンセルすると、手元のPDFファイルを選べます。\n\n元のURL：${orig}`, cur!==orig?cur:"");
+  if(nu===null){
+    const inp=document.createElement("input"); inp.type="file"; inp.accept="application/pdf";
+    inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return; if(f.size>40*1024*1024){ toast("40MBまでのPDFにしてください"); return; }
+      const b64=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(",")[1]||""); r.onerror=()=>rej(r.error); r.readAsDataURL(f); });
+      await DB.put("notes",{id:"upload|"+orig, name:f.name, b64, date:new Date().toISOString()}); toast("手元のPDFを使います。古い評価ノートを削除してから作り直してください。"); renderNotes(); };
+    inp.click(); return;
+  }
+  setUrlOverride(orig, nu.trim()); toast(nu.trim()?"新しいURLを使います。古い評価ノートを削除してから作り直してください。":"元のURLに戻しました。"); renderNotes();
+}
+
+/* ================================================================== APIキー */
+async function testKey(k){
+  const ctl=new AbortController(); const timer=setTimeout(()=>ctl.abort(),15000);
+  try{
+    for(const m of CHAIN){
+      const res=await fetch(`${API}/models/${m}:streamGenerateContent?alt=sse`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":k},
+        body:JSON.stringify({contents:[{role:"user",parts:[{text:"OKとだけ返してください"}]}],generationConfig:{maxOutputTokens:64,thinkingConfig:{thinkingLevel:"low"}}}),signal:ctl.signal});
+      if(res.ok){ try{ ctl.abort(); }catch(e){} return {ok:true, model:m}; }
+      const raw=await errMsg(res); const ki=keyIssue(raw); if(ki) return {ok:false, why:ki};
+      if(res.status===429 && !/limit:\s*0\b/.test(raw)) return {ok:true, model:m, busy:true};
+    }
+    return {ok:false, why:"使えるモデルが見つかりませんでした（3.8 Flash・3.6 Flash・3.5 Flash-Lite）。"};
+  }catch(e){ return {ok:false, why: e.name==="AbortError"?"Googleの返事が15秒以内に来ませんでした。もう一度押してください。":"Googleに接続できませんでした。"}; }
+  finally{ clearTimeout(timer); }
+}
+async function saveKey(input, msgEl){
+  const k=cleanKey(input.value); if(!k){ input.focus(); return false; }
+  msgEl.innerHTML=`<div class="note">確かめています…</div>`;
+  const r=await testKey(k);
+  if(r.ok){ S.set("key",k); msgEl.innerHTML=`<div class="note ok">使えます（${esc(r.model)}${r.busy?"・いまは回数制限中":""}）。保存しました。</div>`; renderStatus(); return true; }
+  msgEl.innerHTML=`<div class="note err">${esc(r.why)}</div>`; return false;
+}
+function showGate(){ $("gate").hidden=false; $("g-key").focus(); }
+
+/* ================================================================== 画面 */
+function showTab(t){ document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-selected", String(b.dataset.tab===t))); document.querySelectorAll("section.tab").forEach(s=>s.hidden = s.id!=="tab-"+t);
+  if(t==="notes") renderNotes(); if(t==="works") renderWorks(); if(t==="set") renderSet(); }
+function renderStatus(){ const k=apiKey(); $("status").innerHTML = (k?`APIキー：設定済み${S.get("key")?"":"（指導案づくりのキー）"}`:`<b style="color:var(--err)">APIキー未設定</b>`) + `　今月の費用：${yen(monthCost())}`; }
+function renderSet(){ $("s-key").value=S.get("key")||""; $("s-fx").value=fx(); $("s-memo").value=S.get("memo")||""; $("s-checkmodel").value=S.get("checkmodel")||"gemini-3.8-flash";
+  const o=JSON.parse(S.get("cost")||"{}"); $("s-cost").textContent="月ごとの費用："+(Object.keys(o).sort().reverse().map(m=>`${m} ${yen(o[m])}`).join("、")||"まだありません"); }
+function onSchool(){
+  const s=$("f-school").value;
+  $("f-grade").innerHTML=GRADES[s].map(g=>`<option value="${g}">${g}年</option>`).join("");
+  $("f-subject").innerHTML=JIREI[s].map(r=>`<option>${esc(r[0])}</option>`).join("");
+  onSubject();
+}
+function onSubject(){
+  const s=$("f-school").value, si=subjInfo(s,$("f-subject").value);
+  [...$("f-grade").options].forEach(o=>o.disabled = !!(si.grades && !si.grades.includes(Number(o.value))));
+  if($("f-grade").selectedOptions[0]?.disabled){ const f=[...$("f-grade").options].find(o=>!o.disabled); if(f) $("f-grade").value=f.value; }
+  const moral=isMoral($("f-subject").value);
+  document.querySelector('#f-parts input[value="rubric"]').closest("label").hidden=moral;
+  updateEst();
+}
+function init(){
+  $("ver").textContent="版 "+VERSION;
+  $("f-school").innerHTML=Object.keys(GRADES).map(s=>`<option value="${s}">${SCHOOL_NAME[s]}</option>`).join("");
+  const last=JSON.parse(S.get("last")||"null");
+  $("f-school").onchange=onSchool; $("f-subject").onchange=onSubject; $("f-grade").onchange=updateEst;
+  onSchool(); if(last) fillForm(last);
+  ["f-unit","f-total","f-now","f-goals","f-flow","f-text","f-wish"].forEach(id=>$(id).addEventListener("change",()=>S.set("last",JSON.stringify(readForm()))));
+  $("f-unit").addEventListener("input",()=>{ clearTimeout(window._et); window._et=setTimeout(updateEst,400); });
+  ["f-school","f-grade","f-subject"].forEach(id=>$(id).addEventListener("change",()=>S.set("last",JSON.stringify(readForm()))));
+  document.querySelectorAll("#f-parts input").forEach(x=>x.addEventListener("change",()=>S.set("last",JSON.stringify(readForm()))));
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+  $("go").onclick=run; $("stop").onclick=()=>CTL&&CTL.abort();
+  $("g-go").onclick=async()=>{ if(await saveKey($("g-key"),$("g-msg"))) setTimeout(()=>{ $("gate").hidden=true; },600); };
+  $("g-key").addEventListener("keydown",e=>{ if(e.key==="Enter") $("g-go").click(); });
+  $("s-keytest").onclick=()=>saveKey($("s-key"),$("s-keymsg"));
+  $("s-fx").onchange=()=>{ S.set("fx",$("s-fx").value); renderStatus(); renderSet(); };
+  $("s-memo").onchange=()=>S.set("memo",$("s-memo").value);
+  $("s-checkmodel").onchange=()=>S.set("checkmodel",$("s-checkmodel").value);
+  $("s-wipe").onclick=async()=>{ if(!confirm("APIキー・評価ノート・作った評価をこの端末からすべて消します。元に戻せません。よろしいですか？")) return;
+    await DB.clear("notes"); await DB.clear("works"); Object.keys(localStorage).filter(k=>k.startsWith("hy-")).forEach(k=>localStorage.removeItem(k)); location.reload(); };
+  renderStatus(); renderWorks();
+  if(!apiKey()) showGate();
+  window.addEventListener("offline",()=>toast("インターネットにつながっていません"));
+}
+init();
+</script>
+</body>
+</html>
